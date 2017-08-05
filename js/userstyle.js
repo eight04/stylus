@@ -87,7 +87,7 @@ function userStyle2json(source) {
 
       // FIXME: finish all metas
       if ((n = metaSource.match(/@name\s+(.+)/))) {
-        style.name = n[1];
+        style.name = n[1].trim();
       }
       if ((n = metaSource.match(/@namespace\s+(\S+)/))) {
         style.namespace = n[1];
