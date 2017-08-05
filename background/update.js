@@ -1,5 +1,5 @@
 /* global getStyles, saveStyle, styleSectionsEqual, chromeLocal */
-/* global calcStyleDigest */
+/* global calcStyleDigest, userStyle2json, semver */
 'use strict';
 
 // eslint-disable-next-line no-var
@@ -15,8 +15,10 @@ var updater = {
   MAYBE_EDITED: 'may be locally edited',
   SAME_MD5: 'up-to-date: MD5 is unchanged',
   SAME_CODE: 'up-to-date: code sections are unchanged',
+  SAME_VERSION: 'up-to-date: version is unchanged',
   ERROR_MD5: 'error: MD5 is invalid',
   ERROR_JSON: 'error: JSON is invalid',
+  ERROR_VERSION: 'error: version is invalid',
 
   lastUpdateTime: parseInt(localStorage.lastUpdateTime) || Date.now(),
 
@@ -53,10 +55,17 @@ var updater = {
 
     'ignoreDigest' option is set on the second manual individual update check on the manage page.
     */
-    return (ignoreDigest ? Promise.resolve() : calcStyleDigest(style))
-      .then(maybeFetchMd5)
-      .then(maybeFetchCode)
-      .then(maybeSave)
+    let pending = Promise.resolve();
+    if (style.isUserStyle) {
+      pending = pending.then(() => download(style.updateUrl))
+        .then(maybeSaveUserStyle);
+    } else {
+      pending = pending.then(() => (ignoreDigest ? Promise.resolve() : calcStyleDigest(style)))
+        .then(maybeFetchMd5)
+        .then(maybeFetchCode)
+        .then(maybeSave);
+    }
+    return pending
       .then(saved => {
         observer(updater.UPDATED, saved);
         updater.log(updater.UPDATED + ` #${saved.id} ${saved.name}`);
@@ -82,6 +91,27 @@ var updater = {
         return Promise.reject(updater.SAME_MD5);
       }
       return download(style.updateUrl);
+    }
+
+    function maybeSaveUserStyle(text) {
+      const json = userStyle2json(text);
+      if (!json.version) {
+        return Promise.reject(updater.ERROR_VERSION);
+      }
+      if (style.version) {
+        if (semver.test(style.version, json.version) === 0) {
+          return Promise.reject(updater.SAME_VERSION);
+        }
+        if (semver.test(style.version, json.version) > 0) {
+          return Promise.reject(updater.ERROR_VERSION);
+        }
+      }
+      json.id = style.id;
+      return !save ? json :
+        saveStyle(Object.assign(json, {
+          name: null, // keep local name customizations
+          reason: 'update',
+        }));
     }
 
     function maybeSave(text) {

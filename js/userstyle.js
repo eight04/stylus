@@ -61,6 +61,7 @@ function userStyle2json(source) {
     const style = {
       name: null,
       isUserStyle: true,
+      version: null,
       source: source,
       enabled: true,
       sections: []
@@ -91,6 +92,9 @@ function userStyle2json(source) {
       }
       if ((n = metaSource.match(/@namespace\s+(\S+)/))) {
         style.namespace = n[1];
+      }
+      if ((n = metaSource.match(/@version\s+(\S+)/))) {
+        style.version = n[1];
       }
       let r = /@include\s+(\S+)/g;
       while ((n = r.exec(metaSource))) {

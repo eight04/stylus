@@ -24,6 +24,8 @@
       "background/storage.js",
       "js/prefs.js",
       "background/background.js",
+      "js/semver.js",
+      "js/userstyle.js",
       "background/update.js"
     ]
   },
