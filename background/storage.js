@@ -227,7 +227,7 @@ function filterStylesInternal({
 
 
 function saveStyle(style) {
-  const id = Number(style.id) || null;
+  let id = Number(style.id) || null;
   const reason = style.reason;
   const notify = style.notify !== false;
   delete style.method;
@@ -251,6 +251,18 @@ function saveStyle(style) {
       delete style.originalDigest;
     }
   }
+
+  if (style.isUserStyle) {
+    // FIXME: use composed index for better performance?
+    return getStyles().then(styles => {
+      const dup = styles.find(s => s.name == style.name && s.namespace == style.namespace);
+      if (dup) {
+        id = dup.id;
+      }
+      return decide();
+    });
+  }
+
   return decide();
 
   function decide() {
