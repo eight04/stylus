@@ -314,7 +314,7 @@ Object.assign(handleEvent, {
       const labels = [];
       for (const va of Object.values(style.vars)) {
         const input = $element({tag: 'input', type: 'text', value: va.value});
-        input.onchange = () => {
+        input.oninput = () => {
           isChanged = true;
           va.value = input.value;
           animateElement(input, {className: 'value-update'});
