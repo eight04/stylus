@@ -1,4 +1,4 @@
-/* global messageBox, getStyleWithNoCode, retranslateCSS */
+/* global messageBox, getStyleWithNoCode, retranslateCSS, userstyle */
 'use strict';
 
 let installed;
@@ -203,6 +203,9 @@ function createStyleElement({style, name}) {
   if (style.updateUrl && newUI.enabled) {
     $('.actions', entry).appendChild(template.updaterIcons.cloneNode(true));
   }
+  if (style.vars && Object.entries(style.vars).length && newUI.enabled) {
+    $('.actions', entry).appendChild(template.configureIcon.cloneNode(true));
+  }
 
   // name being supplied signifies we're invoked by showStyles()
   // which debounces its main loop thus loading the postponed favicons
@@ -286,6 +289,40 @@ Object.assign(handleEvent, {
     '.update': 'update',
     '.delete': 'delete',
     '.applies-to .expander': 'expandTargets',
+    '.configure-userstyle': 'config'
+  },
+
+  config(event, {styleMeta: style}) {
+    let isChanged = false;
+
+    messageBox({
+      title: `Configure ${style.name}`,
+      className: 'regular-form',
+      contents: buildConfigForm(),
+      // FIXME: i18n
+      buttons: ['confirmClose']
+    }).then(() => {
+      if (!isChanged) {
+        return;
+      }
+      userstyle.buildCode(style);
+      saveStyleSafe(style);
+    });
+
+    function buildConfigForm() {
+      const labels = [];
+      for (const va of Object.values(style.vars)) {
+        const input = $element({tag: 'input', type: 'text', value: va.value});
+        input.onchange = () => {
+          isChanged = true;
+          va.value = input.value;
+          animateElement(input, {className: 'value-update'});
+        };
+        const label = $element({tag: 'label', appendChild: [va.label, input]});
+        labels.push(label);
+      }
+      return labels;
+    }
   },
 
   entryClicked(event) {
