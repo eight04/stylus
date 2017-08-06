@@ -25,15 +25,13 @@ function install() {
     chrome.runtime.sendMessage(request);
   }).catch(err => {
     console.log(err);
-    // FIXME: i18n
-    alert(`Failed to install userstyle!\n${err}`);
+    alert(chrome.i18n.getMessage('styleInstallFailed', String(err)));
   });
 }
 
 // It seems that we need to wait some time to redraw the page.
 setTimeout(() => {
-  // FIXME: i18n
-  if (confirm('Do you want to install this style into stylus?')) {
+  if (confirm(chrome.i18n.getMessage('styleInstallNoName'))) {
     install();
   }
 }, 500);

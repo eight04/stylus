@@ -299,8 +299,7 @@ Object.assign(handleEvent, {
       title: `Configure ${style.name}`,
       className: 'regular-form',
       contents: buildConfigForm(),
-      // FIXME: i18n
-      buttons: ['confirmClose']
+      buttons: [t('confirmClose')]
     }).then(() => {
       if (!isChanged) {
         return;

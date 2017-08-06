@@ -129,8 +129,7 @@ ${Object.entries(style.vars).map(([key, va]) => `  --${key}: ${va.value};
     // mandatory fields
     for (const prop of ['name', 'namespace', 'version']) {
       if (!style[prop]) {
-        // FIXME: i18n
-        throw new Error(`Missing metadata ${prop}`);
+        throw new Error(chrome.i18n.getMessage('styleMissingMeta', prop));
       }
     }
   },
