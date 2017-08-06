@@ -5,6 +5,24 @@ function wildcard2regexp(text) {
 }
 
 
+function guessType(value) {
+  if (/^url\(.+\)$/i.test(value)) {
+    return 'image';
+  }
+  if (/^#[0-9a-f]{3,8}$/i.test(value)) {
+    return 'color';
+  }
+  if (/^hsla?\(.+\)$/i.test(value)) {
+    return 'color';
+  }
+  if (/^rgba?\(.+\)$/i.test(value)) {
+    return 'color';
+  }
+  // should we use a color-name table to guess type?
+  return 'text';
+}
+
+
 function userStyle2json(source) {
   const style = buildStyle(source);
 
@@ -64,14 +82,15 @@ function userStyle2json(source) {
       version: null,
       source: source,
       enabled: true,
-      sections: []
+      sections: [],
+      vars: {}
     };
     // iterate through each comment
     let m;
     while ((m = commentRe.exec(source))) {
       const commentSource = source.slice(m.index, m.index + m[0].length);
 
-      let n = commentSource.match(metaRe);
+      const n = commentSource.match(metaRe);
       if (!n) {
         continue;
       }
@@ -86,31 +105,60 @@ function userStyle2json(source) {
 
       const metaSource = n[0];
 
+      const match = (re, callback) => {
+        let m;
+        if (!re.global) {
+          if ((m = metaSource.match(re))) {
+            if (m.length === 1) {
+              callback(m[0]);
+            } else {
+              callback(...m.slice(1));
+            }
+          }
+        } else {
+          const result = [];
+          while ((m = re.exec(metaSource))) {
+            if (m.length <= 2) {
+              result.push(m[m.length - 1]);
+            } else {
+              result.push(m.slice(1));
+            }
+          }
+          if (result.length) {
+            callback(result);
+          }
+        }
+      };
+
       // FIXME: finish all metas
-      if ((n = metaSource.match(/@name\s+(.+)/))) {
-        style.name = n[1].trim();
-      }
-      if ((n = metaSource.match(/@namespace\s+(\S+)/))) {
-        style.namespace = n[1];
-      }
-      if ((n = metaSource.match(/@version\s+(\S+)/))) {
-        style.version = n[1];
-      }
-      let r = /@include\s+(\S+)/g;
-      while ((n = r.exec(metaSource))) {
-        section.includes.push(n[1]);
-      }
-      r = /@exclude\s+(\S+)/g;
-      while ((n = r.exec(metaSource))) {
-        section.excludes.push(n[1]);
-      }
+      match(/@name\s+(.+?)\s*$/m, m => (style.name = m));
+      match(/@namespace\s+(\S+)/, m => (style.namespace = m));
+      match(/@version\s+(\S+)/, m => (style.version = m));
+      match(/@include\s+(\S+)/g, m => section.includes.push(...m));
+      match(/@exclude\s+(\S+)/g, m => section.excludes.push(...m));
+      match(
+        /@var\s+(\S+)\s+(?:(['"])((?:\\\2|.)*?)\2|(\S+))\s+(.+?)\s*$/gm,
+        ms => ms.forEach(([key,, label1, label2, value]) => (
+          style.vars[key] = {
+            type: guessType(value),
+            label: label1 || label2,
+            value: value
+          }
+        ))
+      );
 
       style.sections.push(section);
     }
 
+    // build CSS variables
+    const vars = `:root {
+${Object.entries(style.vars).map(([key, va]) => `  --${key}: ${va.value};
+`).join('')}}
+`;
+
     // split source into `section.code`
     for (let i = 0, len = style.sections.length; i < len; i++) {
-      style.sections[i].code = source.slice(
+      style.sections[i].code = vars + source.slice(
         i === 0 ? 0 : style.sections[i].commentStart,
         style.sections[i + 1] && style.sections[i + 1].commentStart
       );
