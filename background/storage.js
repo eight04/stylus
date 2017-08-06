@@ -252,7 +252,7 @@ function saveStyle(style) {
     }
   }
 
-  if (style.isUserStyle) {
+  if (style.isUserStyle && !id) {
     // FIXME: use composed index for better performance?
     return getStyles().then(styles => {
       const dup = styles.find(
