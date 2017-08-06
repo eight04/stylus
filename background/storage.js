@@ -1,3 +1,5 @@
+/* globals userstyle */
+
 'use strict';
 
 const RX_NAMESPACE = new RegExp([/[\s\r\n]*/,
@@ -278,6 +280,17 @@ function saveStyle(style) {
           return style;
         }
         codeIsUpdated = !existed || 'sections' in style && !styleSectionsEqual(style, oldStyle);
+
+        // preserve style.vars during update
+        if (style.isUserStyle && reason !== 'config') {
+          for (const [key, va] of Object.entries(style.vars)) {
+            if (key in oldStyle.vars) {
+              va.value = oldStyle.vars[key].value;
+            }
+          }
+          userstyle.buildCode(style);
+        }
+
         style = Object.assign({}, oldStyle, style);
         return write(style, store);
       });
