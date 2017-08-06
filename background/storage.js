@@ -332,6 +332,10 @@ function saveStyle(style) {
         style, codeIsUpdated, reason,
       });
     }
+    if (!existed && reason === 'install') {
+      // open the editor with the first install?
+      openEditor(style.id);
+    }
     return style;
   }
 }

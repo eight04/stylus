@@ -18,7 +18,8 @@ function install() {
     const request = {
       method: 'saveStyle',
       url: location.href,
-      updateUrl: location.href
+      updateUrl: location.href,
+      reason: 'install'
     };
     Object.assign(request, userstyle.json(source));
     chrome.runtime.sendMessage(request);
