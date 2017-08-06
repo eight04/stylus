@@ -29,7 +29,10 @@ function install() {
   });
 }
 
-// FIXME: i18n
-if (confirm('Do you want to install this style into stylus?')) {
-  install();
-}
+// It seems that we need to wait some time to redraw the page.
+setTimeout(() => {
+  // FIXME: i18n
+  if (confirm('Do you want to install this style into stylus?')) {
+    install();
+  }
+}, 500);

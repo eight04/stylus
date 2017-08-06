@@ -53,7 +53,6 @@
     },
     {
       "matches": ["*://*/*.user.css", "file:///*.user.css"],
-      "run_at": "document_start",
       "all_frames": false,
       "js": ["js/userstyle.js", "content/install-user-css.js"]
     }
