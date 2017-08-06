@@ -1,4 +1,4 @@
-/* globals userStyle2json */
+/* globals userstyle */
 
 'use strict';
 
@@ -20,7 +20,7 @@ function install() {
       url: location.href,
       updateUrl: location.href
     };
-    Object.assign(request, userStyle2json(source));
+    Object.assign(request, userstyle.json(source));
     chrome.runtime.sendMessage(request);
   }).catch(console.log);
 }

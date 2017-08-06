@@ -1,5 +1,5 @@
 /* global getStyles, saveStyle, styleSectionsEqual, chromeLocal */
-/* global calcStyleDigest, userStyle2json, semver */
+/* global calcStyleDigest, userstyle, semver */
 'use strict';
 
 // eslint-disable-next-line no-var
@@ -94,7 +94,7 @@ var updater = {
     }
 
     function maybeSaveUserStyle(text) {
-      const json = userStyle2json(text);
+      const json = userstyle.json(text);
       if (!json.version) {
         return Promise.reject(updater.ERROR_VERSION);
       }

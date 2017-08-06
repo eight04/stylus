@@ -22,57 +22,9 @@ function guessType(value) {
   return 'text';
 }
 
-
-function userStyle2json(source) {
-  const style = buildStyle(source);
-
-  // convert @include rules to stylish
-  // maybe we should parse match patterns in the future
-  // https://developer.mozilla.org/en-US/Add-ons/WebExtensions/Match_patterns
-  for (const section of style.sections) {
-    for (const include of section.includes) {
-      let m;
-      if (include === '*') {
-        // match all
-        continue;
-      } else if (include.startsWith('/') && include.endsWith('/')) {
-        // regexp
-        if (!section.regexps) {
-          section.regexps = [];
-        }
-        section.regexps.push(include.slice(1, -1));
-      } else if (!include.includes('*')) {
-        // url
-        if (!section.urls) {
-          section.urls = [];
-        }
-        section.urls.push(include);
-      } else if ((m = include.match(/^\*:\/\/(?:\*\.)?([^/]+)\/\*$/))) {
-        // domain. Compatible with match patterns
-        // e.g. *://*.mozilla.org/*
-        if (!section.domains) {
-          section.domains = [];
-        }
-        section.domains.push(m[1]);
-      } else if ((m = include.match(/^[^*]+\*$/))) {
-        // prefixes
-        if (!section.urlPrefixes) {
-          section.urlPrefixes = [];
-        }
-        section.urlPrefixes.push(include.slice(0, -1));
-      } else {
-        // compile wildcard to regexps
-        if (!section.regexps) {
-          section.regexps = [];
-        }
-        section.regexps.push(wildcard2regexp(include));
-      }
-    }
-  }
-
-  return style;
-
-  function buildStyle(source) {
+// eslint-disable-next-line no-var
+var userstyle = {
+  buildStyle(source) {
     const commentRe = /\/\*[\s\S]*?\*\//g;
     const metaRe = /==userstyle==[\s\S]*?==\/userstyle==/i;
 
@@ -150,6 +102,12 @@ function userStyle2json(source) {
       style.sections.push(section);
     }
 
+    this.buildCode(style);
+
+    return style;
+  },
+
+  buildCode(style) {
     // build CSS variables
     const vars = `:root {
 ${Object.entries(style.vars).map(([key, va]) => `  --${key}: ${va.value};
@@ -158,12 +116,62 @@ ${Object.entries(style.vars).map(([key, va]) => `  --${key}: ${va.value};
 
     // split source into `section.code`
     for (let i = 0, len = style.sections.length; i < len; i++) {
-      style.sections[i].code = vars + source.slice(
+      style.sections[i].code = vars + style.source.slice(
         i === 0 ? 0 : style.sections[i].commentStart,
         style.sections[i + 1] && style.sections[i + 1].commentStart
       );
     }
 
     return style;
+  },
+
+  json(source) {
+    const style = this.buildStyle(source);
+
+    // convert @include rules to stylish
+    // maybe we should parse match patterns in the future
+    // https://developer.mozilla.org/en-US/Add-ons/WebExtensions/Match_patterns
+    for (const section of style.sections) {
+      for (const include of section.includes) {
+        let m;
+        if (include === '*') {
+          // match all
+          continue;
+        } else if (include.startsWith('/') && include.endsWith('/')) {
+          // regexp
+          if (!section.regexps) {
+            section.regexps = [];
+          }
+          section.regexps.push(include.slice(1, -1));
+        } else if (!include.includes('*')) {
+          // url
+          if (!section.urls) {
+            section.urls = [];
+          }
+          section.urls.push(include);
+        } else if ((m = include.match(/^\*:\/\/(?:\*\.)?([^/]+)\/\*$/))) {
+          // domain. Compatible with match patterns
+          // e.g. *://*.mozilla.org/*
+          if (!section.domains) {
+            section.domains = [];
+          }
+          section.domains.push(m[1]);
+        } else if ((m = include.match(/^[^*]+\*$/))) {
+          // prefixes
+          if (!section.urlPrefixes) {
+            section.urlPrefixes = [];
+          }
+          section.urlPrefixes.push(include.slice(0, -1));
+        } else {
+          // compile wildcard to regexps
+          if (!section.regexps) {
+            section.regexps = [];
+          }
+          section.regexps.push(wildcard2regexp(include));
+        }
+      }
+    }
+
+    return style;
   }
-}
+};
