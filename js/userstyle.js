@@ -83,13 +83,13 @@ var userstyle = {
       };
 
       // FIXME: finish all metas
-      match(/@name\s+(.+?)\s*$/m, m => (style.name = m));
-      match(/@namespace\s+(\S+)/, m => (style.namespace = m));
-      match(/@version\s+(\S+)/, m => (style.version = m));
-      match(/@include\s+(\S+)/g, m => section.includes.push(...m));
-      match(/@exclude\s+(\S+)/g, m => section.excludes.push(...m));
+      match(/@name[^\S\r\n]+(.+?)[^\S\r\n]*$/m, m => (style.name = m));
+      match(/@namespace[^\S\r\n]+(\S+)/, m => (style.namespace = m));
+      match(/@version[^\S\r\n]+(\S+)/, m => (style.version = m));
+      match(/@include[^\S\r\n]+(\S+)/g, m => section.includes.push(...m));
+      match(/@exclude[^\S\r\n]+(\S+)/g, m => section.excludes.push(...m));
       match(
-        /@var\s+(\S+)\s+(?:(['"])((?:\\\2|.)*?)\2|(\S+))\s+(.+?)\s*$/gm,
+        /@var[^\S\r\n]+(\S+)[^\S\r\n]+(?:(['"])((?:\\\2|.)*?)\2|(\S+))[^\S\r\n]+(.+?)[^\S\r\n]*$/gm,
         ms => ms.forEach(([key,, label1, label2, value]) => (
           style.vars[key] = {
             type: guessType(value),
@@ -125,8 +125,20 @@ ${Object.entries(style.vars).map(([key, va]) => `  --${key}: ${va.value};
     return style;
   },
 
+  validate(style) {
+    // mandatory fields
+    for (const prop of ['name', 'namespace', 'version']) {
+      if (!style[prop]) {
+        // FIXME: i18n
+        throw new Error(`Missing metadata ${prop}`);
+      }
+    }
+  },
+
   json(source) {
     const style = this.buildStyle(source);
+
+    this.validate(style);
 
     // convert @include rules to stylish
     // maybe we should parse match patterns in the future
