@@ -22,7 +22,11 @@ function install() {
     };
     Object.assign(request, userstyle.json(source));
     chrome.runtime.sendMessage(request);
-  }).catch(console.log);
+  }).catch(err => {
+    console.log(err);
+    // FIXME: i18n
+    alert(`Failed to install userstyle!\n${err}`);
+  });
 }
 
 // FIXME: i18n
