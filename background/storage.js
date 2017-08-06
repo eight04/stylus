@@ -1,4 +1,4 @@
-/* globals userstyle */
+/* globals userstyle, openEditor */
 
 'use strict';
 
