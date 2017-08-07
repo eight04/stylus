@@ -1,5 +1,3 @@
-/* globals userstyle */
-
 'use strict';
 
 function fetchText(url) {
@@ -16,13 +14,19 @@ function fetchText(url) {
 function install() {
   fetchText(location.href).then(source => {
     const request = {
-      method: 'saveStyle',
+      method: 'saveStyleSource',
       url: location.href,
-      updateUrl: location.href,
-      reason: 'install'
+      source: source
     };
-    Object.assign(request, userstyle.json(source));
-    chrome.runtime.sendMessage(request);
+    return new Promise((resolve, reject) => {
+      chrome.runtime.sendMessage(request, ([err, result]) => {
+        if (err) {
+          reject(err);
+        } else {
+          resolve(result);
+        }
+      });
+    });
   }).catch(err => {
     console.log(err);
     alert(chrome.i18n.getMessage('styleInstallFailed', String(err)));

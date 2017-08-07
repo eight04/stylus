@@ -1,3 +1,5 @@
+/* globals stylus */
+
 'use strict';
 
 function wildcard2regexp(text) {
@@ -22,9 +24,56 @@ function guessType(value) {
   return 'text';
 }
 
+const BUILDER = {
+  default: {
+    vars(vars) {
+      let output = ':root {\n';
+
+      for (const [key, va] of Object.entries(vars)) {
+        output += `  --${key}: ${va.value};\n`;
+      }
+
+      output += '}\n';
+
+      return output;
+    },
+    code(code) {
+      return Promise.resolve(code);
+    }
+  },
+  stylus: {
+    vars(vars) {
+      let output = '';
+      for (const [key, va] of Object.entries(vars)) {
+        output += `${key} = ${va.value};\n`;
+      }
+      return output;
+    },
+    code(code) {
+      return new Promise((resolve, reject) => {
+        stylus(code).render((err, output) => {
+          if (err) {
+            reject(err);
+          } else {
+            resolve(output);
+          }
+        });
+      });
+    }
+  }
+};
+
 // eslint-disable-next-line no-var
 var userstyle = {
-  buildStyle(source) {
+
+  buildMeta(source) {
+    const style = userstyle._buildMeta(source);
+    userstyle.validate(style);
+    userstyle.toStylish(style);
+    return style;
+  },
+
+  _buildMeta(source) {
     const commentRe = /\/\*[\s\S]*?\*\//g;
     const metaRe = /==userstyle==[\s\S]*?==\/userstyle==/i;
 
@@ -35,7 +84,8 @@ var userstyle = {
       source: source,
       enabled: true,
       sections: [],
-      vars: {}
+      vars: {},
+      preprocessor: null
     };
     // iterate through each comment
     let m;
@@ -85,6 +135,7 @@ var userstyle = {
       // FIXME: finish all metas
       match(/@name[^\S\r\n]+(.+?)[^\S\r\n]*$/m, m => (style.name = m));
       match(/@namespace[^\S\r\n]+(\S+)/, m => (style.namespace = m));
+      match(/@preprocessor[^\S\r\n]+(\S+)/, m => (style.preprocessor = m));
       match(/@version[^\S\r\n]+(\S+)/, m => (style.version = m));
       match(/@include[^\S\r\n]+(\S+)/g, m => section.includes.push(...m));
       match(/@exclude[^\S\r\n]+(\S+)/g, m => section.excludes.push(...m));
@@ -101,18 +152,19 @@ var userstyle = {
 
       style.sections.push(section);
     }
-
-    this.buildCode(style);
-
     return style;
   },
 
   buildCode(style) {
+    let builder;
+    if (style.preprocessor && style.preprocessor in BUILDER) {
+      builder = BUILDER[style.preprocessor];
+    } else {
+      builder = BUILDER.default;
+    }
+
     // build CSS variables
-    const vars = `:root {
-${Object.entries(style.vars).map(([key, va]) => `  --${key}: ${va.value};
-`).join('')}}
-`;
+    const vars = builder.vars(style.vars);
 
     // split source into `section.code`
     for (let i = 0, len = style.sections.length; i < len; i++) {
@@ -122,7 +174,18 @@ ${Object.entries(style.vars).map(([key, va]) => `  --${key}: ${va.value};
       );
     }
 
-    return style;
+    // build each section
+    const pending = [];
+    for (const section of style.sections) {
+      pending.push(
+        builder.code(section.code)
+          .then(code => {
+            section.code = code;
+          })
+      );
+    }
+
+    return Promise.all(pending).then(() => style);
   },
 
   validate(style) {
@@ -134,11 +197,7 @@ ${Object.entries(style.vars).map(([key, va]) => `  --${key}: ${va.value};
     }
   },
 
-  json(source) {
-    const style = this.buildStyle(source);
-
-    this.validate(style);
-
+  toStylish(style) {
     // convert @include rules to stylish
     // maybe we should parse match patterns in the future
     // https://developer.mozilla.org/en-US/Add-ons/WebExtensions/Match_patterns

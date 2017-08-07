@@ -304,7 +304,6 @@ Object.assign(handleEvent, {
       if (!isChanged) {
         return;
       }
-      userstyle.buildCode(style);
       style.reason = 'config';
       saveStyleSafe(style);
     });

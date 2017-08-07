@@ -21,6 +21,7 @@
   "background": {
     "scripts": [
       "js/messaging.js",
+      "vendor/stylus/stylus.min.js",
       "js/userstyle.js",
       "background/storage.js",
       "js/prefs.js",
@@ -54,7 +55,7 @@
     {
       "matches": ["*://*/*.user.css", "file:///*.user.css"],
       "all_frames": false,
-      "js": ["js/userstyle.js", "content/install-user-css.js"]
+      "js": ["content/install-user-css.js"]
     }
   ],
   "browser_action": {

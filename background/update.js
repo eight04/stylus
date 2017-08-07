@@ -94,7 +94,7 @@ var updater = {
     }
 
     function maybeSaveUserStyle(text) {
-      const json = userstyle.json(text);
+      const json = userstyle.buildMeta(text);
       if (!json.version) {
         return Promise.reject(updater.ERROR_VERSION);
       }

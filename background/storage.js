@@ -228,6 +228,14 @@ function filterStylesInternal({
 }
 
 
+function saveStyleSource({url, source}) {
+  const style = userstyle.buildMeta(source);
+  style.url = style.updateUrl = url;
+  style.reason = 'install';
+  return saveStyle(style);
+}
+
+
 function saveStyle(style) {
   let id = Number(style.id) || null;
   const reason = style.reason;
@@ -240,6 +248,41 @@ function saveStyle(style) {
   }
   let existed;
   let codeIsUpdated;
+
+  if (style.isUserStyle) {
+    return Promise.resolve().then(() => {
+      if (id) {
+        return getStyles({id}).then(s => s[0]);
+      }
+      // FIXME: use composed index for better performance?
+      return getStyles().then(styles =>
+        styles.find(
+          s => s.name === style.name && s.namespace === style.namespace
+        )
+      );
+    }).then(dup => {
+      if (!dup) {
+        return;
+      }
+      if (!id) {
+        id = dup.id;
+      }
+      if (reason === 'config') {
+        return;
+      }
+      // preserve style.vars during update
+      for (const [key, va] of Object.entries(style.vars)) {
+        if (key in dup.vars) {
+          va.value = dup.vars[key].value;
+        }
+      }
+    }).then(() => {
+      // FIXME: userstyle's sections are always built from source, so edit.html
+      // is totally unusable.
+      userstyle.buildCode(style);
+    }).then(decide);
+  }
+
   if (reason === 'update' || reason === 'update-digest') {
     return calcStyleDigest(style).then(digest => {
       style.originalDigest = digest;
@@ -252,19 +295,6 @@ function saveStyle(style) {
     if (typeof style.originalDigest !== 'string' || style.originalDigest.length !== 40) {
       delete style.originalDigest;
     }
-  }
-
-  if (style.isUserStyle && !id) {
-    // FIXME: use composed index for better performance?
-    return getStyles().then(styles => {
-      const dup = styles.find(
-        s => s.name === style.name && s.namespace === style.namespace
-      );
-      if (dup) {
-        id = dup.id;
-      }
-      return decide();
-    });
   }
 
   return decide();
@@ -280,16 +310,6 @@ function saveStyle(style) {
           return style;
         }
         codeIsUpdated = !existed || 'sections' in style && !styleSectionsEqual(style, oldStyle);
-
-        // preserve style.vars during update
-        if (style.isUserStyle && reason !== 'config') {
-          for (const [key, va] of Object.entries(style.vars)) {
-            if (key in oldStyle.vars) {
-              va.value = oldStyle.vars[key].value;
-            }
-          }
-          userstyle.buildCode(style);
-        }
 
         style = Object.assign({}, oldStyle, style);
         return write(style, store);
