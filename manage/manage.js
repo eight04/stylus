@@ -1,4 +1,4 @@
-/* global messageBox, getStyleWithNoCode, retranslateCSS, userstyle */
+/* global messageBox, getStyleWithNoCode, retranslateCSS */
 'use strict';
 
 let installed;
