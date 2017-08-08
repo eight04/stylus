@@ -1,5 +1,5 @@
 /* eslint brace-style: 0, operator-linebreak: 0 */
-/* global CodeMirror exports parserlib CSSLint */
+/* global CodeMirror exports parserlib CSSLint saveStyleSourceSafe */
 'use strict';
 
 let styleId = null;
@@ -1248,10 +1248,12 @@ function init() {
     }
     window.onload = () => {
       window.onload = null;
-      addSection(null, section);
+      // addSection(null, section);
+      redrawSections({section: [section]});
       editors[0].setOption('lint', CodeMirror.defaults.lint);
       // default to enabled
       document.getElementById('enabled').checked = true;
+      document.getElementById('is-userstyle').checked = false;
       initHooks();
     };
     return;
@@ -1281,6 +1283,14 @@ function setStyleMeta(style) {
   document.getElementById('name').value = style.name;
   document.getElementById('enabled').checked = style.enabled;
   document.getElementById('url').href = style.url;
+  setIsUserstyle(style.isUserStyle);
+}
+
+function setIsUserstyle(isUserStyle) {
+  document.getElementById('name').classList.toggle('hidden', Boolean(isUserStyle));
+  document.getElementById('mozilla-format').classList.toggle('hidden', Boolean(isUserStyle));
+  document.getElementById('is-userstyle').checked = isUserStyle;
+  document.getElementById('is-userstyle').disabled = Boolean(styleId);
 }
 
 function initWithStyle({style, codeIsUpdated}) {
@@ -1292,8 +1302,20 @@ function initWithStyle({style, codeIsUpdated}) {
     return;
   }
 
+  redrawSections(style);
+
+  initHooks();
+}
+
+function redrawSections(style) {
+  redrawSectionsHeader(style);
   // if this was done in response to an update, we need to clear existing sections
   getSections().forEach(div => { div.remove(); });
+
+  if (document.getElementById('is-userstyle').checked) {
+    drawUserstyleEditor(style);
+    return;
+  }
   const queue = style.sections.length ? style.sections.slice() : [{code: ''}];
   const queueStart = new Date().getTime();
   // after 100ms the sections will be added asynchronously
@@ -1306,7 +1328,6 @@ function initWithStyle({style, codeIsUpdated}) {
       setTimeout(processQueue, 0);
     }
   })();
-  initHooks();
 
   function add() {
     const sectionDiv = addSection(null, queue.shift());
@@ -1319,18 +1340,57 @@ function initWithStyle({style, codeIsUpdated}) {
   }
 }
 
+function redrawSectionsHeader(style) {
+  let templateName, popupHelp;
+  if (document.getElementById('is-userstyle').checked) {
+    templateName = 'sectionHeadingUserstyle';
+    popupHelp = showUserstyleHelp;
+  } else {
+    templateName = 'sectionHeading';
+    popupHelp = showSectionHelp;
+  }
+  const heading = template[templateName].cloneNode(true);
+  const help = heading.querySelector('.help-button');
+  if (help && popupHelp) {
+    help.addEventListener('click', popupHelp, false);
+  }
+  const oldHeading = document.getElementById('sections-heading');
+  if (oldHeading) {
+    oldHeading.parentNode.replaceChild(heading, oldHeading);
+  } else {
+    const parent = document.getElementById('sections');
+    parent.insertBefore(heading, parent.childNodes[0]);
+  }
+}
+
+function drawUserstyleEditor(style) {
+  const div = template.sectionUserstyle.cloneNode(true);
+  const codeElement = div.querySelector('.code');
+
+  if (style) {
+    codeElement.value = style.source;
+  }
+
+  const sections = document.getElementById('sections');
+
+  sections.appendChild(div);
+  div.CodeMirror = setupCodeMirror(codeElement);
+  setCleanSection(div);
+  return div;
+}
+
 function initHooks() {
   document.querySelectorAll('#header .style-contributor').forEach(node => {
     node.addEventListener('change', onChange);
     node.addEventListener('input', onChange);
   });
+  document.getElementById('is-userstyle').addEventListener('change', toggleEditorMode);
   document.getElementById('toggle-style-help').addEventListener('click', showToggleStyleHelp);
   document.getElementById('to-mozilla').addEventListener('click', showMozillaFormat, false);
   document.getElementById('to-mozilla-help').addEventListener('click', showToMozillaHelp, false);
   document.getElementById('from-mozilla').addEventListener('click', fromMozillaFormat);
   document.getElementById('beautify').addEventListener('click', beautify);
   document.getElementById('save-button').addEventListener('click', save, false);
-  document.getElementById('sections-help').addEventListener('click', showSectionHelp, false);
   document.getElementById('keyMap-help').addEventListener('click', showKeyMapHelp, false);
   document.getElementById('cancel-button').addEventListener('click', goBackToManage);
   document.getElementById('lint-help').addEventListener('click', showLintHelp);
@@ -1355,6 +1415,24 @@ function initHooks() {
   setupGlobalSearch();
   setCleanGlobal();
   updateTitle();
+}
+
+
+function toggleEditorMode(event) {
+  const USERSTYLE_TEMPLATE = `/* ==UserStyle==
+@name My Style
+@namespace example.com
+@version 0.1.0
+@include http://www.example.com/
+==/UserStyle== */
+
+body {
+  background: skyblue;
+}
+`;
+
+  setIsUserstyle(event.target.checked);
+  redrawSections({sections: [], source: USERSTYLE_TEMPLATE});
 }
 
 
@@ -1414,9 +1492,12 @@ function maximizeCodeHeight(sectionDiv, isLast) {
   });
 }
 
-function updateTitle() {
+function updateTitle(style) {
   const DIRTY_TITLE = '* $';
 
+  if (style && style.name) {
+    document.getElementById('name').savedValue = style.name;
+  }
   const name = document.getElementById('name').savedValue;
   const clean = isCleanGlobal();
   const title = styleId === null ? t('addStyleTitle') : t('editStyleTitle', [name]);
@@ -1463,21 +1544,37 @@ function save() {
     editors[i].save();
   }
 
-  const error = validate();
-  if (error) {
-    alert(error);
-    return;
-  }
   const name = document.getElementById('name').value;
   const enabled = document.getElementById('enabled').checked;
-  saveStyleSafe({
-    id: styleId,
-    name: name,
-    enabled: enabled,
-    reason: 'editSave',
-    sections: getSectionsHashes()
-  })
-    .then(saveComplete);
+  const isUserStyle = document.getElementById('is-userstyle').checked;
+
+  if (!isUserStyle) {
+    const error = validate();
+    if (error) {
+      alert(error);
+      return;
+    }
+  }
+
+  let pending;
+  if (isUserStyle) {
+    pending = saveStyleSourceSafe({
+      id: styleId,
+      enabled: enabled,
+      reason: 'editSave',
+      source: getSource()
+    });
+  } else {
+    pending = saveStyleSafe({
+      id: styleId,
+      name: name,
+      enabled: enabled,
+      reason: 'editSave',
+      sections: getSectionsHashes()
+    });
+  }
+
+  pending.then(saveComplete, saveFailed);
 }
 
 function getSectionsHashes() {
@@ -1492,6 +1589,10 @@ function getSectionsHashes() {
     sections.push(meta);
   });
   return sections;
+}
+
+function getSource() {
+  return getSections()[0].CodeMirror.getValue();
 }
 
 function getMeta(e) {
@@ -1520,7 +1621,13 @@ function saveComplete(style) {
     history.replaceState({}, document.title, 'edit.html?id=' + style.id);
     $('#heading').textContent = t('editStyleHeading');
   }
-  updateTitle();
+  updateTitle(style);
+  setStyleMeta(style);
+}
+
+function saveFailed(error) {
+  console.log(error);
+  alert(error);
 }
 
 function showMozillaFormat() {
@@ -1707,6 +1814,10 @@ function fromMozillaFormat() {
 
 function showSectionHelp() {
   showHelp(t('styleSectionsTitle'), t('sectionHelp'));
+}
+
+function showUserstyleHelp() {
+  showHelp(t('styleSectionsUserstyleTitle'), t('userstyleHelp'));
 }
 
 function showAppliesToHelp() {

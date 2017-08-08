@@ -572,3 +572,6 @@ body[data-match-highlight="selection"] .CodeMirror-selection-highlight-scrollbar
     position: static;
   }
 }
+.hidden {
+  display: none;
+}

@@ -82,6 +82,11 @@
         <button class="test-regexp" i18n-text="styleRegexpTestButton"></button>
       </div>
     </template>
+    <template data-id="sectionUserstyle">
+      <div>
+        <textarea class="code"></textarea>
+      </div>
+    </template>
     <template data-id="find">
       <span i18n-text="search">: <input type="text" class="CodeMirror-search-field" spellcheck="false">
         <span class="CodeMirror-search-hint">(<span i18n-text="searchRegexp"></span>)</span>
@@ -117,6 +122,12 @@
     <template data-id="resizeGrip">
       <div class="resize-grip" i18n-title="cm_resizeGripHint"></div>
     </template>
+    <template data-id="sectionHeading">
+      <h2 id="sections-heading"><span i18n-text="styleSectionsTitle"></span><svg class="svg-icon info help-button"><use xlink:href="#svg-icon-help"/></svg></h2>
+    </template>
+    <template data-id="sectionHeadingUserstyle">
+      <h2 id="sections-heading"><span i18n-text="styleSectionsUserstyleTitle"></span><svg class="svg-icon info help-button"><use xlink:href="#svg-icon-help"/></svg></h2></h2>
+    </template>
   </head>
 
   <body id="stylus-edit">
@@ -134,6 +145,10 @@
             <use xlink:href="#svg-icon-help"/>
           </svg>
         </div>
+        <div id="basic-info-userstyle">
+          <input type="checkbox" id="is-userstyle" class="style-contributor">
+          <label for="is-userstyle" i18n-text="styleIsUserStyleLabel"></label>
+        </div>
       </section>
       <section id="actions">
         <div>
@@ -141,7 +156,7 @@
           <button id="beautify" i18n-text="styleBeautify"></button>
           <a href="manage.html"><button id="cancel-button" i18n-text="styleCancelEditLabel"></button></a>
         </div>
-        <div>
+        <div id="mozilla-format">
           <h2 id="mozilla-format-heading" i18n-text="styleMozillaFormatHeading"><svg id="to-mozilla-help" class="svg-icon info"><use xlink:href="#svg-icon-help"/></svg></h2>
           <button id="from-mozilla" i18n-text="importLabel"></button>
           <button id="to-mozilla" i18n-text="exportLabel"></button>
@@ -190,7 +205,7 @@
       <section id="lint"><h2 i18n-text="issues">: <span id="issue-count"></span><svg id="lint-help" class="svg-icon info"><use xlink:href="#svg-icon-help"/></svg></h2><div></div></section>
     </div>
     <section id="sections">
-      <h2><span id="sections-heading" i18n-text="styleSectionsTitle"></span><svg id="sections-help" class="svg-icon info"><use xlink:href="#svg-icon-help"/></svg></h2>
+
     </section>
     <div id="help-popup">
       <div class="title"></div><svg id="sections-help" class="svg-icon dismiss"><use xlink:href="#svg-icon-close"/></svg></svg>
