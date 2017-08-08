@@ -228,10 +228,11 @@ function filterStylesInternal({
 }
 
 
-function saveStyleSource({url, source}) {
-  const style = userstyle.buildMeta(source);
-  style.url = style.updateUrl = url;
-  style.reason = 'install';
+function saveStyleSource(style) {
+  style = Object.assign({
+    updateUrl: style.url,
+    reason: 'install'
+  }, userstyle.buildMeta(style.source), style);
   return saveStyle(style);
 }
 
