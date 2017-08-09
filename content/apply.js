@@ -346,3 +346,29 @@ function orphanCheck() {
     'docRewriteObserver',
   ].forEach(fn => (window[fn] = null));
 }
+
+document.addEventListener('DOMContentLoaded', documentLoad);
+
+function documentLoad() {
+  document.removeEventListener('DOMContentLoaded', documentLoad);
+
+  if (isUserstyle()) {
+    chrome.runtime.sendMessage({
+      method: 'injectContentScript',
+      js: '/content/install-user-css.js'
+    });
+  }
+}
+
+function isUserstyle() {
+  if (!/\.user\.(css|styl|less)$/i.test(location.href)) {
+    return false;
+  }
+  if (!/text\/(css|plain)/.test(document.contentType)) {
+    return false;
+  }
+  if (!/==userstyle==/i.test(document.body.textContent)) {
+    return false;
+  }
+  return true;
+}

@@ -337,7 +337,7 @@ function onRuntimeMessage(request, sender, sendResponse) {
             console.log(error);
             sendResponse([String(error), null]);
           }
-         );
+        );
       return KEEP_CHANNEL_OPEN;
 
     case 'healthCheck':
@@ -351,5 +351,15 @@ function onRuntimeMessage(request, sender, sendResponse) {
         .then(sendResponse)
         .catch(() => sendResponse(null));
       return KEEP_CHANNEL_OPEN;
+
+    case 'injectContentScript':
+      injectContentScript(request.js, sender.tab.id);
+      return;
   }
+}
+
+
+function injectContentScript(file, tabId) {
+  // TODO: share some code with injectCS?
+  chrome.tabs.executeScript(tabId, {file});
 }

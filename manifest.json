@@ -51,11 +51,6 @@
       "run_at": "document_start",
       "all_frames": false,
       "js": ["content/install.js"]
-    },
-    {
-      "matches": ["*://*/*.user.css", "file:///*.user.css"],
-      "all_frames": false,
-      "js": ["content/install-user-css.js"]
     }
   ],
   "browser_action": {
