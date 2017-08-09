@@ -277,11 +277,9 @@ function saveStyle(style) {
           va.value = dup.vars[key].value;
         }
       }
-    }).then(() => {
-      // FIXME: userstyle's sections are always built from source, so edit.html
-      // is totally unusable.
-      userstyle.buildCode(style);
-    }).then(decide);
+    })
+    .then(() => userstyle.buildCode(style))
+    .then(decide);
   }
 
   if (reason === 'update' || reason === 'update-digest') {
