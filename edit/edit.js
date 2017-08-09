@@ -1248,8 +1248,7 @@ function init() {
     }
     window.onload = () => {
       window.onload = null;
-      // addSection(null, section);
-      redrawSections({section: [section]});
+      redrawSections({sections: [section]});
       editors[0].setOption('lint', CodeMirror.defaults.lint);
       // default to enabled
       document.getElementById('enabled').checked = true;
