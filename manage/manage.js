@@ -203,7 +203,7 @@ function createStyleElement({style, name}) {
   if (style.updateUrl && newUI.enabled) {
     $('.actions', entry).appendChild(template.updaterIcons.cloneNode(true));
   }
-  if (style.vars && Object.entries(style.vars).length && newUI.enabled) {
+  if (style.vars && Object.keys(style.vars).length && newUI.enabled) {
     $('.actions', entry).appendChild(template.configureIcon.cloneNode(true));
   }
 

@@ -29,8 +29,8 @@ const BUILDER = {
     vars(vars) {
       let output = ':root {\n';
 
-      for (const [key, va] of Object.entries(vars)) {
-        output += `  --${key}: ${va.value};\n`;
+      for (const key of Object.keys(vars)) {
+        output += `  --${key}: ${vars[key].value};\n`;
       }
 
       output += '}\n';
@@ -44,8 +44,8 @@ const BUILDER = {
   stylus: {
     vars(vars) {
       let output = '';
-      for (const [key, va] of Object.entries(vars)) {
-        output += `${key} = ${va.value};\n`;
+      for (const key of Object.keys(vars)) {
+        output += `${key} = ${vars[key].value};\n`;
       }
       return output;
     },

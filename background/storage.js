@@ -272,9 +272,9 @@ function saveStyle(style) {
         return;
       }
       // preserve style.vars during update
-      for (const [key, va] of Object.entries(style.vars)) {
+      for (const key of Object.keys(style.vars)) {
         if (key in dup.vars) {
-          va.value = dup.vars[key].value;
+          style.vars[key].value = dup.vars[key].value;
         }
       }
     })
