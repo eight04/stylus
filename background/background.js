@@ -1,4 +1,4 @@
-/* global dbExec, getStyles, saveStyle, saveStyleSource */
+/* global dbExec, getStyles, saveStyle, saveStyleSource, queryUserStyle */
 'use strict';
 
 // eslint-disable-next-line no-var
@@ -330,14 +330,11 @@ function onRuntimeMessage(request, sender, sendResponse) {
       return KEEP_CHANNEL_OPEN;
 
     case 'saveStyleSource':
-      saveStyleSource(request)
-        .then(
-          result => sendResponse([null, result]),
-          error => {
-            console.log(error);
-            sendResponse([String(error), null]);
-          }
-        );
+      responseWithError(saveStyleSource(request));
+      return KEEP_CHANNEL_OPEN;
+
+    case 'queryUserStyle':
+      responseWithError(queryUserStyle(request));
       return KEEP_CHANNEL_OPEN;
 
     case 'healthCheck':
@@ -353,13 +350,37 @@ function onRuntimeMessage(request, sender, sendResponse) {
       return KEEP_CHANNEL_OPEN;
 
     case 'injectContentScript':
-      injectContentScript(request.js, sender.tab.id);
-      return;
+      injectContentScript(request.js, sender.tab.id).then(sendResponse);
+      return KEEP_CHANNEL_OPEN;
+  }
+
+  function responseWithError(pending) {
+    return pending.then(
+      result => sendResponse([null, result]),
+      error => {
+        console.log(error);
+        sendResponse([String(error), null]);
+      }
+    );
   }
 }
 
 
-function injectContentScript(file, tabId) {
-  // TODO: share some code with injectCS?
-  chrome.tabs.executeScript(tabId, {file});
+function injectContentScript(files, tabId) {
+  return new Promise(resolve => {
+    if (typeof files === 'string') {
+      files = [files];
+    }
+
+    let pending = 0;
+    for (const file of files) {
+      pending++;
+      chrome.tabs.executeScript(tabId, {file}, () => {
+        pending--;
+        if (!pending) {
+          resolve();
+        }
+      });
+    }
+  });
 }

@@ -227,6 +227,26 @@ function filterStylesInternal({
     : filtered;
 }
 
+// {id: int, style: object, source: string, checkDup: boolean}
+function queryUserStyle(req) {
+  return Promise.resolve().then(() => {
+    let style;
+    if (req.source) {
+      style = userstyle.buildMeta(req.source);
+    } else {
+      style = req.style;
+    }
+    if (!style.id && req.id) {
+      style.id = req.id;
+    }
+    if (!style.id && req.checkDup) {
+      return findDupUserstyle(style)
+        .then(dup => ({style, dup}));
+    }
+    return {style};
+  });
+}
+
 
 function saveStyleSource(style) {
   style = Object.assign({
@@ -255,12 +275,7 @@ function saveStyle(style) {
       if (id) {
         return getStyles({id}).then(s => s[0]);
       }
-      // FIXME: use composed index for better performance?
-      return getStyles().then(styles =>
-        styles.find(
-          s => s.name === style.name && s.namespace === style.namespace
-        )
-      );
+      return findDupUserstyle(style);
     }).then(dup => {
       if (!dup) {
         return;
@@ -369,6 +384,15 @@ function deleteStyle({id, notify = true}) {
     }
     return id;
   });
+}
+
+function findDupUserstyle(style) {
+  // FIXME: use composed index for better performance?
+  return getStyles().then(styles =>
+    styles.find(
+      s => s.name === style.name && s.namespace === style.namespace
+    )
+  );
 }
 
 

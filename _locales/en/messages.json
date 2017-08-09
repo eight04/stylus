@@ -547,6 +547,21 @@
       }
     }
   },
+  "styleInstallOverwrite" : {
+    "message": "'$stylename$' is already installed. Overwrite?\nVersion: $oldVersion$ -> $newVersion$",
+    "description": "Confirmation when re-installing a style",
+    "placeholders": {
+      "stylename": {
+        "content": "$1"
+      },
+      "oldVersion": {
+        "content": "$2"
+      },
+    "newVersion": {
+        "content": "$3"
+      }
+    }
+  },
   "styleInstallNoName": {
     "message": "Install this style into stylus?",
     "description": "Confirmation when installing a style"

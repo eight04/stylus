@@ -11,22 +11,43 @@ function fetchText(url) {
   });
 }
 
-function install() {
-  fetchText(location.href).then(source => {
-    const request = {
-      method: 'saveStyleSource',
-      url: location.href,
-      source: source
-    };
-    return new Promise((resolve, reject) => {
-      chrome.runtime.sendMessage(request, ([err, result]) => {
-        if (err) {
-          reject(err);
-        } else {
-          resolve(result);
-        }
-      });
+function install(style) {
+  const request = Object.assign(style, {
+    method: 'saveStyle',
+    reason: 'install',
+    url: location.href,
+    updateUrl: location.href
+  });
+  return communicate(request);
+}
+
+function communicate(request) {
+  return new Promise((resolve, reject) => {
+    chrome.runtime.sendMessage(request, ([err, result]) => {
+      if (err) {
+        reject(err);
+      } else {
+        resolve(result);
+      }
     });
+  });
+}
+
+function initUserstyleInstall() {
+  fetchText(location.href).then(source =>
+    communicate({
+      method: 'queryUserStyle',
+      source: source,
+      checkDup: true
+    })
+  ).then(({style, dup}) => {
+    if (dup) {
+      if (confirm(chrome.i18n.getMessage('styleInstallOverwrite', [style.name, dup.version, style.version]))) {
+        return install(style);
+      }
+    } else if (confirm(chrome.i18n.getMessage('styleInstall', [style.name]))) {
+      return install(style);
+    }
   }).catch(err => {
     console.log(err);
     alert(chrome.i18n.getMessage('styleInstallFailed', String(err)));
@@ -34,8 +55,4 @@ function install() {
 }
 
 // It seems that we need to wait some time to redraw the page.
-setTimeout(() => {
-  if (confirm(chrome.i18n.getMessage('styleInstallNoName'))) {
-    install();
-  }
-}, 500);
+setTimeout(initUserstyleInstall, 500);
