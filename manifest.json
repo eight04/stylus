@@ -21,10 +21,10 @@
   "background": {
     "scripts": [
       "js/messaging.js",
-      "vendor/stylus/stylus.min.js",
       "js/userstyle.js",
       "background/storage.js",
       "js/prefs.js",
+      "background/script-loader.js",
       "background/background.js",
       "js/semver.js",
       "background/update.js"

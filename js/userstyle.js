@@ -1,4 +1,4 @@
-/* globals stylus */
+/* globals loadScript */
 
 'use strict';
 
@@ -50,15 +50,18 @@ const BUILDER = {
       return output;
     },
     code(code) {
-      return new Promise((resolve, reject) => {
-        stylus(code).render((err, output) => {
-          if (err) {
-            reject(err);
-          } else {
-            resolve(output);
-          }
-        });
-      });
+      return loadScript('vendor/stylus/stylus.min.js').then(() => (
+        new Promise((resolve, reject) => {
+          // eslint-disable-next-line no-undef
+          stylus(code).render((err, output) => {
+            if (err) {
+              reject(err);
+            } else {
+              resolve(output);
+            }
+          });
+        })
+      ));
     }
   }
 };
