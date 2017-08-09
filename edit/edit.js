@@ -1286,7 +1286,7 @@ function setStyleMeta(style) {
 }
 
 function setIsUserstyle(isUserStyle) {
-  document.getElementById('name').classList.toggle('hidden', Boolean(isUserStyle));
+  document.getElementById('name').disabled = isUserStyle;
   document.getElementById('mozilla-format').classList.toggle('hidden', Boolean(isUserStyle));
   document.getElementById('is-userstyle').checked = isUserStyle;
   document.getElementById('is-userstyle').disabled = Boolean(styleId);
@@ -1383,6 +1383,7 @@ function initHooks() {
     node.addEventListener('change', onChange);
     node.addEventListener('input', onChange);
   });
+  document.getElementById('name-help').addEventListener('click', showNameHelp);
   document.getElementById('is-userstyle').addEventListener('change', toggleEditorMode);
   document.getElementById('toggle-style-help').addEventListener('click', showToggleStyleHelp);
   document.getElementById('to-mozilla').addEventListener('click', showMozillaFormat, false);
@@ -1809,6 +1810,10 @@ function fromMozillaFormat() {
   function trimNewLines(s) {
     return s.replace(/^[\s\n]+/, '').replace(/[\s\n]+$/, '');
   }
+}
+
+function showNameHelp() {
+  showHelp(t('helpAlt'), t('styleNameHelp'));
 }
 
 function showSectionHelp() {

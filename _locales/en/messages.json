@@ -573,6 +573,9 @@
     "message": "Enter a name.",
     "description": "Error displayed when user saves without providing a name"
   },
+  "styleNameHelp": {
+    "message": "Input the name of the style. In userstyle mode, the name is specified by metadata @name."
+  },
   "styleSaveLabel": {
     "message": "Save",
     "description": "Label for save button for style editing"
