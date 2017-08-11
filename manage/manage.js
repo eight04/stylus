@@ -197,7 +197,7 @@ function createStyleElement({style, name}) {
     (style.enabled ? 'enabled' : 'disabled') +
     (style.updateUrl ? ' updatable' : '');
 
-  if (style.url) {
+  if (style.url && !style.usercss) {
     $('.homepage', entry).appendChild(parts.homepageIcon.cloneNode(true));
   }
   if (style.updateUrl && newUI.enabled) {
