@@ -289,7 +289,7 @@ Object.assign(handleEvent, {
     '.update': 'update',
     '.delete': 'delete',
     '.applies-to .expander': 'expandTargets',
-    '.configure-userstyle': 'config'
+    '.configure-usercss': 'config'
   },
 
   config(event, {styleMeta: style}) {

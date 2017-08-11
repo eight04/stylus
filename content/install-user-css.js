@@ -33,10 +33,10 @@ function communicate(request) {
   });
 }
 
-function initUserstyleInstall() {
+function initUsercssInstall() {
   fetchText(location.href).then(source =>
     communicate({
-      method: 'queryUserStyle',
+      method: 'queryUsercss',
       source: source,
       checkDup: true
     })
@@ -55,4 +55,4 @@ function initUserstyleInstall() {
 }
 
 // It seems that we need to wait some time to redraw the page.
-setTimeout(initUserstyleInstall, 500);
+setTimeout(initUsercssInstall, 500);

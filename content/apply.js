@@ -352,7 +352,7 @@ document.addEventListener('DOMContentLoaded', documentLoad);
 function documentLoad() {
   document.removeEventListener('DOMContentLoaded', documentLoad);
 
-  if (isUserstyle()) {
+  if (isUsercss()) {
     chrome.runtime.sendMessage({
       method: 'injectContentScript',
       js: '/content/install-user-css.js'
@@ -360,7 +360,7 @@ function documentLoad() {
   }
 }
 
-function isUserstyle() {
+function isUsercss() {
   if (!/\.user\.(css|styl|less)$/i.test(location.href)) {
     return false;
   }

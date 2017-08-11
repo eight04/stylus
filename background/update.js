@@ -1,5 +1,5 @@
 /* global getStyles, saveStyle, styleSectionsEqual, chromeLocal */
-/* global calcStyleDigest, userstyle, semver */
+/* global calcStyleDigest, usercss, semver */
 'use strict';
 
 // eslint-disable-next-line no-var
@@ -56,9 +56,9 @@ var updater = {
     'ignoreDigest' option is set on the second manual individual update check on the manage page.
     */
     let pending = Promise.resolve();
-    if (style.isUserStyle) {
+    if (style.usercss) {
       pending = pending.then(() => download(style.updateUrl))
-        .then(maybeSaveUserStyle);
+        .then(maybeSaveUsercss);
     } else {
       pending = pending.then(() => (ignoreDigest ? Promise.resolve() : calcStyleDigest(style)))
         .then(maybeFetchMd5)
@@ -93,8 +93,8 @@ var updater = {
       return download(style.updateUrl);
     }
 
-    function maybeSaveUserStyle(text) {
-      const json = userstyle.buildMeta(text);
+    function maybeSaveUsercss(text) {
+      const json = usercss.buildMeta(text);
       if (!json.version) {
         return Promise.reject(updater.ERROR_VERSION);
       }

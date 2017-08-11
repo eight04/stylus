@@ -530,10 +530,6 @@
     "message": "Enabled",
     "description": "Label for the enabled state of styles"
   },
-  "styleIsUserStyleLabel": {
-    "message": "Userstyle mode",
-    "description": "Label for the option to enable userstyle mode in style-editing panel"
-  },
   "styleEnabledToggleHint": {
     "message": "Press Alt-Enter to toggle enabled/disabled state and save the style",
     "description": "Help text for the '[x] enable' checkbox in the editor"
@@ -588,9 +584,6 @@
     "message": "Enter a name.",
     "description": "Error displayed when user saves without providing a name"
   },
-  "styleNameHelp": {
-    "message": "Input the name of the style. In userstyle mode, the name is specified by metadata @name."
-  },
   "styleSaveLabel": {
     "message": "Save",
     "description": "Label for save button for style editing"
@@ -598,10 +591,6 @@
   "styleSectionsTitle": {
     "message": "Sections",
     "description": "Title for the style sections section"
-  },
-  "styleSectionsUserstyleTitle": {
-    "message": "Userstyle Source",
-    "description": "Title for the userstyle source"
   },
   "styleMozillaFormatHeading": {
     "message": "Mozilla Format",
@@ -704,10 +693,6 @@
   "updatesCurrentlyInstalled": {
     "message": "Updates installed:",
     "description": "Text that displays when an update is installed on options page. Followed by the number of currently installed updates."
-  },
-  "userstyleHelp": {
-    "message": "Userstyle is a new way to write your style in a single file like userscript. It uses the metadata syntax to specify name, version, included URLs, etc.",
-    "description": "Help text for userstyle"
   },
   "writeStyleFor": {
     "message": "Write style for: ",

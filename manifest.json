@@ -21,7 +21,7 @@
   "background": {
     "scripts": [
       "js/messaging.js",
-      "js/userstyle.js",
+      "js/usercss.js",
       "background/storage.js",
       "js/prefs.js",
       "background/script-loader.js",

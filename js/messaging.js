@@ -348,12 +348,6 @@ function saveStyleSafe(style) {
 }
 
 
-function saveStyleSourceSafe(style) {
-  return onBackgroundReady()
-    .then(() => BG.saveStyleSource(BG.deepCopy(style)));
-}
-
-
 function deleteStyleSafe({id, notify = true} = {}) {
   return onBackgroundReady()
     .then(() => BG.deleteStyle({id, notify}))

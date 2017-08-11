@@ -1,4 +1,4 @@
-/* globals userstyle, openEditor */
+/* globals usercss, openEditor */
 
 'use strict';
 
@@ -227,12 +227,14 @@ function filterStylesInternal({
     : filtered;
 }
 
+
+// Parse the source and find the duplication
 // {id: int, style: object, source: string, checkDup: boolean}
-function queryUserStyle(req) {
+function queryUsercss(req) {
   return Promise.resolve().then(() => {
     let style;
     if (req.source) {
-      style = userstyle.buildMeta(req.source);
+      style = usercss.buildMeta(req.source);
     } else {
       style = req.style;
     }
@@ -240,7 +242,7 @@ function queryUserStyle(req) {
       style.id = req.id;
     }
     if (!style.id && req.checkDup) {
-      return findDupUserstyle(style)
+      return findDupUsercss(style)
         .then(dup => ({style, dup}));
     }
     return {style};
@@ -248,11 +250,12 @@ function queryUserStyle(req) {
 }
 
 
-function saveStyleSource(style) {
+// Parse the source and save style
+function saveUsercss(style) {
   style = Object.assign({
     updateUrl: style.url,
     reason: 'install'
-  }, userstyle.buildMeta(style.source), style);
+  }, usercss.buildMeta(style.source), style);
   return saveStyle(style);
 }
 
@@ -270,12 +273,12 @@ function saveStyle(style) {
   let existed;
   let codeIsUpdated;
 
-  if (style.isUserStyle) {
+  if (style.usercss) {
     return Promise.resolve().then(() => {
       if (id) {
         return getStyles({id}).then(s => s[0]);
       }
-      return findDupUserstyle(style);
+      return findDupUsercss(style);
     }).then(dup => {
       if (!dup) {
         return;
@@ -293,7 +296,7 @@ function saveStyle(style) {
         }
       }
     })
-    .then(() => userstyle.buildCode(style))
+    .then(() => usercss.buildCode(style))
     .then(decide);
   }
 
@@ -310,7 +313,6 @@ function saveStyle(style) {
       delete style.originalDigest;
     }
   }
-
   return decide();
 
   function decide() {
@@ -324,7 +326,6 @@ function saveStyle(style) {
           return style;
         }
         codeIsUpdated = !existed || 'sections' in style && !styleSectionsEqual(style, oldStyle);
-
         style = Object.assign({}, oldStyle, style);
         return write(style, store);
       });
@@ -386,7 +387,7 @@ function deleteStyle({id, notify = true}) {
   });
 }
 
-function findDupUserstyle(style) {
+function findDupUsercss(style) {
   // FIXME: use composed index for better performance?
   return getStyles().then(styles =>
     styles.find(

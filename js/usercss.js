@@ -67,12 +67,12 @@ const BUILDER = {
 };
 
 // eslint-disable-next-line no-var
-var userstyle = {
+var usercss = {
 
   buildMeta(source) {
-    const style = userstyle._buildMeta(source);
-    userstyle.validate(style);
-    userstyle.toStylish(style);
+    const style = usercss._buildMeta(source);
+    usercss.validate(style);
+    usercss.toStylish(style);
     return style;
   },
 
@@ -82,7 +82,7 @@ var userstyle = {
 
     const style = {
       name: null,
-      isUserStyle: true,
+      usercss: true,
       version: null,
       source: source,
       enabled: true,
