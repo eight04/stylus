@@ -30,7 +30,8 @@ var mozParser = (function () {
       const sections = [];
 
       parser.addListener('startdocument', function (e) {
-        let outerText = getRange(sectionStack.last.start, (--e.col, e));
+        const lastSection = sectionStack[sectionStack.length - 1];
+        let outerText = getRange(lastSection.start, (--e.col, e));
         const gapComment = outerText.match(/(\/\*[\s\S]*?\*\/)[\s\n]*$/);
         const section = {code: '', start: backtrackTo(this, parserlib.css.Tokens.LBRACE, 'end')};
         // move last comment before @-moz-document inside the section
@@ -39,9 +40,9 @@ var mozParser = (function () {
           outerText = trimNewLines(outerText.substring(0, gapComment.index));
         }
         if (outerText.trim()) {
-          sectionStack.last.code = outerText;
-          doAddSection(sectionStack.last);
-          sectionStack.last.code = '';
+          lastSection.code = outerText;
+          doAddSection(lastSection);
+          lastSection.code = '';
         }
         for (const f of e.functions) {
           const m = f && f.match(/^([\w-]*)\((['"]?)(.+?)\2?\)$/);
@@ -59,17 +60,19 @@ var mozParser = (function () {
       parser.addListener('enddocument', function () {
         const end = backtrackTo(this, parserlib.css.Tokens.RBRACE, 'start');
         const section = sectionStack.pop();
+        const lastSection = sectionStack[sectionStack.length - 1];
         section.code += getRange(section.start, end);
-        sectionStack.last.start = (++end.col, end);
+        lastSection.start = (++end.col, end);
         doAddSection(section);
       });
 
       parser.addListener('endstylesheet', () => {
         // add nonclosed outer sections (either broken or the last global one)
-        const endOfText = {line: lines.length, col: lines.last.length + 1};
-        sectionStack.last.code += getRange(sectionStack.last.start, endOfText);
+        const lastLine = lines[lines.length - 1];
+        const endOfText = {line: lines.length, col: lastLine.length + 1};
+        const lastSection = sectionStack[sectionStack.length - 1];
+        lastSection.code += getRange(lastSection.start, endOfText);
         sectionStack.forEach(doAddSection);
-
 
         if (errors.length) {
           reject(errors);
@@ -124,7 +127,7 @@ var mozParser = (function () {
     // Parse mozilla-format userstyle into sections
     parse(text) {
       if (typeof parserlib === 'undefined') {
-        return loadScript('vender/csslint/csslint-worker.js')
+        return loadScript('vendor/csslint/csslint-worker.js')
           .then(() => parseMozFormat(text));
       }
       return parseMozFormat(text);
