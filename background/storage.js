@@ -250,16 +250,6 @@ function queryUsercss(req) {
 }
 
 
-// Parse the source and save style
-function saveUsercss(style) {
-  style = Object.assign({
-    updateUrl: style.url,
-    reason: 'install'
-  }, usercss.buildMeta(style.source), style);
-  return saveStyle(style);
-}
-
-
 function saveStyle(style) {
   let id = Number(style.id) || null;
   const reason = style.reason;

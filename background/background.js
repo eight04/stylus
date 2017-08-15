@@ -1,4 +1,4 @@
-/* global dbExec, getStyles, saveStyle, saveUsercss, queryUsercss */
+/* global dbExec, getStyles, saveStyle, queryUsercss */
 'use strict';
 
 // eslint-disable-next-line no-var
@@ -330,7 +330,9 @@ function onRuntimeMessage(request, sender, sendResponse) {
       return KEEP_CHANNEL_OPEN;
 
     case 'saveUsercss':
-      responseWithError(saveUsercss(request));
+      // FIXME: both 'saveUsercss' and 'saveStyle' use saveStyle() function,
+      // however the response is different so we use a new method here.
+      responseWithError(saveStyle(request));
       return KEEP_CHANNEL_OPEN;
 
     case 'queryUsercss':
