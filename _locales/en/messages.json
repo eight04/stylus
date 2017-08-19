@@ -592,6 +592,10 @@
     "message": "Sections",
     "description": "Title for the style sections section"
   },
+  "styleSourceTitle": {
+    "message": "Source",
+    "description": "Title for the usercss source section"
+  },
   "styleMozillaFormatHeading": {
     "message": "Mozilla Format",
     "description": "Heading for the section with buttons to import/export Mozilla format of the style"

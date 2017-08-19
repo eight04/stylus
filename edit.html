@@ -9,7 +9,9 @@
     <script src="js/script-loader.js"></script>
     <script src="js/moz-parser.js"></script>
     <script src="content/apply.js"></script>
+
     <link rel="stylesheet" href="edit/edit.css">
+    <script src="edit/section-editor.js"></script>
     <script src="edit/edit.js"></script>
 
     <script src="vendor/codemirror/lib/codemirror.js"></script>
@@ -119,6 +121,23 @@
     <template data-id="resizeGrip">
       <div class="resize-grip" i18n-title="cm_resizeGripHint"></div>
     </template>
+    <template data-id="sectionEditor">
+      <div id="multi-section-editor">
+        <header class="section-editor-header">
+          <h2><span id="sections-heading" i18n-text="styleSectionsTitle"></span><svg id="sections-help" class="svg-icon info"><use xlink:href="#svg-icon-help"/></svg></h2>
+        </header>
+        <section id="sections" class="sections-container">
+        </section>
+      </div>
+    </template>
+    <template data-id="sourceEditor">
+      <section id="sections">
+        <div class="editor-heading">
+          <h2><span id="sections-heading" i18n-text="styleSourceTitle"></span><svg id="sections-help" class="svg-icon info"><use xlink:href="#svg-icon-help"/></svg></h2>
+        </div>
+      </section>
+      <div class="editor-container"></div>
+    </template>
   </head>
 
   <body id="stylus-edit">
@@ -191,9 +210,7 @@
       </section>
       <section id="lint"><h2 i18n-text="issues">: <span id="issue-count"></span><svg id="lint-help" class="svg-icon info"><use xlink:href="#svg-icon-help"/></svg></h2><div></div></section>
     </div>
-    <section id="sections">
-      <h2><span id="sections-heading" i18n-text="styleSectionsTitle"></span><svg id="sections-help" class="svg-icon info"><use xlink:href="#svg-icon-help"/></svg></h2>
-    </section>
+    <div id="main-editor"></div>
     <div id="help-popup">
       <div class="title"></div><svg id="sections-help" class="svg-icon dismiss"><use xlink:href="#svg-icon-close"/></svg></svg>
       <div class="contents"></div>

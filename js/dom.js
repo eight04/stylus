@@ -148,3 +148,34 @@ function retranslateCSS(selectorToMessageMap) {
     }
   }
 }
+
+function bindEvent(el, handler) {
+  // bind event on el. handler is a eventType to callback dict.
+  const cache = [];
+  for (const type of Object.keys(handler)) {
+    el.addEventListener(type, handler[type]);
+    cache.push([el, type, handler[type]]);
+  }
+  function unbind() {
+    for (const [el, type, callback] of cache) {
+      el.removeEventListener(type, callback);
+    }
+  }
+  return unbind;
+}
+
+function bindEventGroup(base, options) {
+  // bind events on base's descendent. options is a selector to handler dict.
+  // return a function to unbind.
+  const unbinds = [];
+  for (const selector of Object.keys(options)) {
+    const el = base.querySelector(selector);
+    unbinds.push(bindEvent(el, options[selector]));
+  }
+  function unbind() {
+    for (const unbind of unbinds) {
+      unbind();
+    }
+  }
+  return unbind;
+}

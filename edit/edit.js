@@ -1,7 +1,9 @@
 /* eslint brace-style: 0, operator-linebreak: 0 */
-/* global CodeMirror exports parserlib CSSLint mozParser */
+/* global CodeMirror exports parserlib CSSLint mozParser createSectionEditor */
 'use strict';
 
+let style = null;
+let editor = null;
 let styleId = null;
 let dirty = {};       // only the actually dirty items here
 const editors = [];     // array of all CodeMirror instances
@@ -511,118 +513,6 @@ window.onbeforeunload = () => {
   updateLintReport(null, 0);
   return confirm(t('styleChangesNotSaved'));
 };
-
-function addAppliesTo(list, name, value) {
-  const showingEverything = list.querySelector('.applies-to-everything') !== null;
-  // blow away 'Everything' if it's there
-  if (showingEverything) {
-    list.removeChild(list.firstChild);
-  }
-  let e;
-  if (name && value) {
-    e = template.appliesTo.cloneNode(true);
-    e.querySelector('[name=applies-type]').value = name;
-    e.querySelector('[name=applies-value]').value = value;
-    e.querySelector('.remove-applies-to').addEventListener('click', removeAppliesTo, false);
-  } else if (showingEverything || list.hasChildNodes()) {
-    e = template.appliesTo.cloneNode(true);
-    if (list.hasChildNodes()) {
-      e.querySelector('[name=applies-type]').value = list.querySelector('li:last-child [name="applies-type"]').value;
-    }
-    e.querySelector('.remove-applies-to').addEventListener('click', removeAppliesTo, false);
-  } else {
-    e = template.appliesToEverything.cloneNode(true);
-  }
-  e.querySelector('.add-applies-to').addEventListener('click', function () {
-    addAppliesTo(this.parentNode.parentNode);
-  }, false);
-  list.appendChild(e);
-}
-
-function addSection(event, section) {
-  const div = template.section.cloneNode(true);
-  div.querySelector('.applies-to-help').addEventListener('click', showAppliesToHelp, false);
-  div.querySelector('.remove-section').addEventListener('click', removeSection, false);
-  div.querySelector('.add-section').addEventListener('click', addSection, false);
-  div.querySelector('.beautify-section').addEventListener('click', beautify);
-
-  const codeElement = div.querySelector('.code');
-  const appliesTo = div.querySelector('.applies-to-list');
-  let appliesToAdded = false;
-
-  if (section) {
-    codeElement.value = section.code;
-    for (const i in propertyToCss) {
-      if (section[i]) {
-        section[i].forEach(url => {
-          addAppliesTo(appliesTo, propertyToCss[i], url);
-          appliesToAdded = true;
-        });
-      }
-    }
-  }
-  if (!appliesToAdded) {
-    addAppliesTo(appliesTo);
-  }
-
-  appliesTo.addEventListener('change', onChange);
-  appliesTo.addEventListener('input', onChange);
-
-  toggleTestRegExpVisibility();
-  appliesTo.addEventListener('change', toggleTestRegExpVisibility);
-  div.querySelector('.test-regexp').onclick = showRegExpTester;
-  function toggleTestRegExpVisibility() {
-    const show = [...appliesTo.children].some(item =>
-      !item.matches('.applies-to-everything') &&
-      item.querySelector('.applies-type').value === 'regexp' &&
-      item.querySelector('.applies-value').value.trim());
-    div.classList.toggle('has-regexp', show);
-    appliesTo.oninput = appliesTo.oninput || show && (event => {
-      if (
-        event.target.matches('.applies-value') &&
-        event.target.parentElement.querySelector('.applies-type').value === 'regexp'
-      ) {
-        showRegExpTester(null, div);
-      }
-    });
-  }
-
-  const sections = document.getElementById('sections');
-  let cm;
-  if (event) {
-    const clickedSection = getSectionForChild(event.target);
-    sections.insertBefore(div, clickedSection.nextElementSibling);
-    const newIndex = getSections().indexOf(clickedSection) + 1;
-    cm = setupCodeMirror(codeElement, newIndex);
-    makeSectionVisible(cm);
-    cm.focus();
-    renderLintReport();
-  } else {
-    sections.appendChild(div);
-    cm = setupCodeMirror(codeElement);
-  }
-
-  div.CodeMirror = cm;
-  setCleanSection(div);
-  return div;
-}
-
-function removeAppliesTo(event) {
-  const appliesTo = event.target.parentNode;
-  const appliesToList = appliesTo.parentNode;
-  removeAreaAndSetDirty(appliesTo);
-  if (!appliesToList.hasChildNodes()) {
-    addAppliesTo(appliesToList);
-  }
-}
-
-function removeSection(event) {
-  const section = getSectionForChild(event.target);
-  const cm = section.CodeMirror;
-  removeAreaAndSetDirty(section);
-  editors.splice(editors.indexOf(cm), 1);
-  renderLintReport();
-}
 
 function removeAreaAndSetDirty(area) {
   const contributors = area.querySelectorAll('.style-contributor');
@@ -1246,20 +1136,20 @@ function init() {
         section[CssToProperty[i]] = [params[i]];
       }
     }
+    style = {
+      name: '',
+      sections: [section]
+    };
     window.onload = () => {
       window.onload = null;
-      addSection(null, section);
-      editors[0].setOption('lint', CodeMirror.defaults.lint);
-      // default to enabled
-      document.getElementById('enabled').checked = true;
-      initHooks();
+      initWithStyle({style});
     };
     return;
   }
   // This is an edit
   $('#heading').textContent = t('editStyleHeading');
   getStylesSafe({id: params.id}).then(styles => {
-    let style = styles[0];
+    style = styles[0];
     if (!style) {
       style = {id: null, sections: []};
       history.replaceState({}, document.title, location.pathname);
@@ -1279,6 +1169,7 @@ function init() {
 
 function setStyleMeta(style) {
   document.getElementById('name').value = style.name;
+  document.getElementById('name').disabled = Boolean(style.usercss);
   document.getElementById('enabled').checked = style.enabled;
   document.getElementById('url').href = style.url;
 }
@@ -1292,31 +1183,16 @@ function initWithStyle({style, codeIsUpdated}) {
     return;
   }
 
-  // if this was done in response to an update, we need to clear existing sections
-  getSections().forEach(div => { div.remove(); });
-  const queue = style.sections.length ? style.sections.slice() : [{code: ''}];
-  const queueStart = new Date().getTime();
-  // after 100ms the sections will be added asynchronously
-  while (new Date().getTime() - queueStart <= 100 && queue.length) {
-    add();
+  // if this was done in response to an update, we need to clear existing editors
+  if (editor) {
+    editor.destroy();
   }
-  (function processQueue() {
-    if (queue.length) {
-      add();
-      setTimeout(processQueue, 0);
-    }
-  })();
+  if (style.usercss) {
+    editor = createSourceEditor($('#main-editor'), style);
+  } else {
+    editor = createSectionEditor($('#main-editor'), style);
+  }
   initHooks();
-
-  function add() {
-    const sectionDiv = addSection(null, queue.shift());
-    maximizeCodeHeight(sectionDiv, !queue.length);
-    const cm = sectionDiv.CodeMirror;
-    setTimeout(() => {
-      cm.setOption('lint', CodeMirror.defaults.lint);
-      updateLintReport(cm, 0);
-    }, prefs.get('editor.lintDelay'));
-  }
 }
 
 function initHooks() {
@@ -1561,21 +1437,17 @@ function fromMozillaFormat() {
 
     mozParser.parse(mozStyle).then(sections => {
       if (replaceOldStyle) {
-        editors.slice(0).reverse().forEach(cm => {
-          removeSection({target: cm.getSection().firstElementChild});
-        });
-      } else if (!editors.last.getValue()) {
-        // nuke the last blank section
-        if (editors.last.getSection().querySelector('.applies-to-everything')) {
-          removeSection({target: editors.last.getSection()});
-        }
+        editor.removeAllSections();
       }
 
+      // nuke the last blank section
+      editor.removeLastEmptySection();
+
       const firstSection = sections[0];
-      setCleanItem(addSection(null, firstSection), false);
+      editor.addSection(firstSection);
       const firstAddedCM = editors.last;
       for (const section of sections.slice(1)) {
-        setCleanItem(addSection(null, section), false);
+        editor.addSection(section);
       }
 
       delete maximizeCodeHeight.stats;
@@ -1599,10 +1471,6 @@ function fromMozillaFormat() {
 
 function showSectionHelp() {
   showHelp(t('styleSectionsTitle'), t('sectionHelp'));
-}
-
-function showAppliesToHelp() {
-  showHelp(t('appliesLabel'), t('appliesHelp'));
 }
 
 function showToMozillaHelp() {
@@ -1722,147 +1590,7 @@ function showLintHelp() {
   );
 }
 
-function showRegExpTester(event, section = getSectionForChild(this)) {
-  const GET_FAVICON_URL = 'https://www.google.com/s2/favicons?domain=';
-  const OWN_ICON = chrome.runtime.getManifest().icons['16'];
-  const cachedRegexps = showRegExpTester.cachedRegexps =
-    showRegExpTester.cachedRegexps || new Map();
-  const regexps = [...section.querySelector('.applies-to-list').children]
-    .map(item =>
-      !item.matches('.applies-to-everything') &&
-      item.querySelector('.applies-type').value === 'regexp' &&
-      item.querySelector('.applies-value').value.trim())
-    .filter(item => item)
-    .map(text => {
-      const rxData = Object.assign({text}, cachedRegexps.get(text));
-      if (!rxData.urls) {
-        cachedRegexps.set(text, Object.assign(rxData, {
-          rx: tryRegExp(text),
-          urls: new Map(),
-        }));
-      }
-      return rxData;
-    });
-  chrome.tabs.onUpdated.addListener(function _(tabId, info) {
-    if (document.querySelector('.regexp-report')) {
-      if (info.url) {
-        showRegExpTester(event, section);
-      }
-    } else {
-      chrome.tabs.onUpdated.removeListener(_);
-    }
-  });
-  queryTabs().then(tabs => {
-    const supported = tabs.map(tab => tab.url)
-      .filter(url => URLS.supported.test(url));
-    const unique = [...new Set(supported).values()];
-    for (const rxData of regexps) {
-      const {rx, urls} = rxData;
-      if (rx) {
-        const urlsNow = new Map();
-        for (const url of unique) {
-          const match = urls.get(url) || (url.match(rx) || [])[0];
-          if (match) {
-            urlsNow.set(url, match);
-          }
-        }
-        rxData.urls = urlsNow;
-      }
-    }
-    const stats = {
-      full: {data: [], label: t('styleRegexpTestFull')},
-      partial: {data: [], label: [
-        t('styleRegexpTestPartial'),
-        template.regexpTestPartial.cloneNode(true),
-      ]},
-      none: {data: [], label: t('styleRegexpTestNone')},
-      invalid: {data: [], label: t('styleRegexpTestInvalid')},
-    };
-    // collect stats
-    for (const {text, rx, urls} of regexps) {
-      if (!rx) {
-        stats.invalid.data.push({text});
-        continue;
-      }
-      if (!urls.size) {
-        stats.none.data.push({text});
-        continue;
-      }
-      const full = [];
-      const partial = [];
-      for (const [url, match] of urls.entries()) {
-        const faviconUrl = url.startsWith(URLS.ownOrigin)
-          ? OWN_ICON
-          : GET_FAVICON_URL + new URL(url).hostname;
-        const icon = $element({tag: 'img', src: faviconUrl});
-        if (match.length === url.length) {
-          full.push($element({appendChild: [
-            icon,
-            url,
-          ]}));
-        } else {
-          partial.push($element({appendChild: [
-            icon,
-            $element({tag: 'mark', textContent: match}),
-            url.substr(match.length),
-          ]}));
-        }
-      }
-      if (full.length) {
-        stats.full.data.push({text, urls: full});
-      }
-      if (partial.length) {
-        stats.partial.data.push({text, urls: partial});
-      }
-    }
-    // render stats
-    const report = $element({className: 'regexp-report'});
-    const br = $element({tag: 'br'});
-    for (const type in stats) {
-      // top level groups: full, partial, none, invalid
-      const {label, data} = stats[type];
-      if (!data.length) {
-        continue;
-      }
-      const block = report.appendChild($element({
-        tag: 'details',
-        open: true,
-        dataset: {type},
-        appendChild: $element({tag: 'summary', appendChild: label}),
-      }));
-      // 2nd level: regexp text
-      for (const {text, urls} of data) {
-        if (urls) {
-          // type is partial or full
-          block.appendChild($element({
-            tag: 'details',
-            open: true,
-            appendChild: [
-              $element({tag: 'summary', textContent: text}),
-              // 3rd level: tab urls
-              ...urls,
-            ],
-          }));
-        } else {
-          // type is none or invalid
-          block.appendChild(document.createTextNode(text));
-          block.appendChild(br.cloneNode());
-        }
-      }
-    }
-    showHelp(t('styleRegexpTestTitle'), report);
-
-    document.querySelector('.regexp-report').onclick = event => {
-      const target = event.target.closest('a, .regexp-report div');
-      if (target) {
-        openURL({url: target.href || target.textContent});
-        event.preventDefault();
-      }
-    };
-  });
-}
-
-function showHelp(title, body) {
+function showHelp(title, body, onclose) {
   const div = $('#help-popup');
   div.classList.remove('big');
   $('.contents', div).textContent = '';
@@ -1873,8 +1601,8 @@ function showHelp(title, body) {
     document.addEventListener('keydown', closeHelp);
     div.querySelector('.dismiss').onclick = closeHelp; // avoid chaining on multiple showHelp() calls
   }
-
   div.style.display = 'block';
+  showHelp.onclose = onclose;
   return div;
 
   function closeHelp(e) {
@@ -1886,8 +1614,17 @@ function showHelp(title, body) {
       div.style.display = '';
       document.querySelector('.contents').textContent = '';
       document.removeEventListener('keydown', closeHelp);
+      if (showHelp.onclose) {
+        showHelp.onclose();
+        showHelp.onclose = null;
+      }
     }
   }
+}
+
+function hideHelp() {
+  const div = $('#help-popup');
+  div.style.display = '';
 }
 
 function showCodeMirrorPopup(title, html, options) {

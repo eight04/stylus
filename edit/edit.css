@@ -17,10 +17,10 @@ body {
 #header h1 {
   margin-top: 0;
 }
-#sections {
+#main-editor {
   padding-left: 280px;
 }
-#sections h2 {
+#main-editor h2 {
   margin-top: 1rem;
   margin-left: 1.7rem;
 }
@@ -276,6 +276,9 @@ body[data-match-highlight="selection"] .CodeMirror-selection-highlight-scrollbar
 }
 .applies-to img {
   vertical-align: bottom;
+}
+.applies-to li.error input {
+  background: pink;
 }
 .test-regexp {
   display: none;
