@@ -154,7 +154,7 @@
         findNext(cm, rev);
       }
     } else {
-      dialog(cm, queryDialog, "Search for:", q, function(query) {
+      startSearchDialog(cm, q, query => {
         if (query && !state.query) cm.operation(function() {
           startSearch(cm, state, query);
           state.posFrom = state.posTo = cm.getCursor();
@@ -164,17 +164,23 @@
     }
   }
 
-  function findNext(cm, rev, callback) {cm.operation(function() {
+  function startSearchDialog(cm, q, callback) {
+    dialog(cm, queryDialog, "Search for:", q, callback);
+  }
+
+  function findNext(cm, rev, callback, loop = true) {cm.operation(function() {
     var state = getSearchState(cm);
     var cursor = getSearchCursor(cm, state.query, rev ? state.posFrom : state.posTo);
     if (!cursor.find(rev)) {
+      if (!loop) return false;
       cursor = getSearchCursor(cm, state.query, rev ? CodeMirror.Pos(cm.lastLine()) : CodeMirror.Pos(cm.firstLine(), 0));
-      if (!cursor.find(rev)) return;
+      if (!cursor.find(rev)) return false;
     }
     cm.setSelection(cursor.from(), cursor.to());
     cm.scrollIntoView({from: cursor.from(), to: cursor.to()}, 20);
     state.posFrom = cursor.from(); state.posTo = cursor.to();
-    if (callback) callback(cursor.from(), cursor.to())
+    if (callback) callback(cursor.from(), cursor.to());
+    return true;
   });}
 
   function clearSearch(cm) {cm.operation(function() {
@@ -249,4 +255,25 @@
   CodeMirror.commands.clearSearch = clearSearch;
   CodeMirror.commands.replace = replace;
   CodeMirror.commands.replaceAll = function(cm) {replace(cm, true);};
+
+  // programming api
+  CodeMirror.defineExtension("searchDialog", callback => {
+    var cm = this;
+    clearSearch(cm);
+    var q = cm.getSelection() || state.lastQuery;
+    startSearchDialog(cm, q, callback);
+  });
+
+  CodeMirror.defineExtension("searchStart", query => {
+    var cm = this;
+    clearSearch(cm);
+    startSearch(cm, getSearchState(cm), query);
+  });
+
+  CodeMirror.defineExtension("search", (query, pos, rev) => {
+    var cm = this;
+    var state = getSearchState(cm);
+    state.posFrom = state.posTo = pos;
+    return findNext(cm, rev, null, false) ? [state.posFrom, state.posTo] : null;
+  });
 });

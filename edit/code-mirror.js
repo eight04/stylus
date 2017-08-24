@@ -1,5 +1,9 @@
 'use strict';
 
+function capticalize(s) {
+  return s[0].toUpperCase() + s.slice(1);
+}
+
 (function () {
   // additional info for commands
   const COMMANDS = {
@@ -94,6 +98,16 @@
 
   buildKeyMap();
 
+  // setup global commands
+  for (const cmdName of Object.keys(COMMANDS)) {
+    const cmd = COMMANDS[cmdName];
+    if (cmd.global) {
+      CodeMirror.commands[cmdName] = decorateGlobalCmd(cmd.run || CodeMirror.commands[cmdName], cmdName);
+    } else if (cmd.run) {
+      CodeMirror.commands[cmdName] = cmd.run;
+    }
+  }
+
   // some common methods to CodeMirror
   CodeMirror.setGlobalOption = (o, v) => {
     CodeMirror.defaults[o] = v;
@@ -162,6 +176,48 @@
     };
   };
 
+  CodeMirror.setupSearcher = cm => {
+    let cache, pos;
+    cm.search = (text, direction, pos, loop) => {
+      if (!cache || cache.text !== text) {
+        cache = createSearch(text);
+      }
+      return cache[direction](pos, loop);
+    };
+
+    function createSearch(text) {
+      const doc = cm.getValues();
+      let match = text.match(/^\/(.+?)\/([imuy]*)$/);
+      if (match) {
+        try {
+          text = new RegExp(match[1], match[2]);
+        } catch (err) {}
+      }
+      let matches;
+      return {
+        next(_pos = pos, loop) {
+          let index;
+          if (typeof text === 'string') {
+            index = doc.
+          }
+        },
+        prev(_pos = pos, loop) {
+
+        }
+      }
+    }
+  };
+
+  function decorateGlobalCmd(run, name) {
+    const globalName = `global${capticalize(name)}`;
+    return cm => {
+      if (cm[globalName]) {
+        return cm[globalName](cm);
+      }
+      return run(cm);
+    }
+  }
+
   function buildKeyMap() {
     for (const cmdName of Object.keys(COMMANDS)) {
       const cmd = COMMANDS[cmdName];
@@ -203,9 +259,3 @@
     });
   }
 })();
-
-
-function createCodeMirror(textarea, options) {
-
-  return cm;
-}

@@ -488,6 +488,21 @@ function createSection(section) {
   };
 }
 
+function createGlobalSearcher() {
+  const widgets = [];
+  return {
+    addCodeMirror(cm) {
+      cm.globalFind = find;
+      cm.globalFindNext = findNext;
+      cm.globalFindPrev = findPrev;
+      cm.globalReplace = replace;
+      cm.globalReplaceAll = replaceAll;
+      widgets.push(cm);
+    },
+    remove(widget) {}
+  };
+}
+
 function createEditorManager() {
   const editors = new Set();
   let actived, lastActived;
@@ -544,11 +559,13 @@ function createSectionEditor(parent, style) {
       !refSection || style.sections.indexOf(refSection) === style.sections.length - 1
     );
 
-    const cm = sectionCtrl.el.CodeMirror;
+    const cm = sectionCtrl.cm;
     setTimeout(() => {
       cm.setOption('lint', CodeMirror.defaults.lint);
       updateLintReport(cm, 0);
     }, prefs.get('editor.lintDelay'));
+
+    globalSearcher.addCodeMirror(cm);
 
     return sectionCtrl;
   }

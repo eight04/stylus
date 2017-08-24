@@ -229,21 +229,6 @@ window.onbeforeunload = () => {
   return confirm(t('styleChangesNotSaved'));
 };
 
-function makeSectionVisible(cm) {
-  const section = cm.getSection();
-  const bounds = section.getBoundingClientRect();
-  if (
-    (bounds.bottom > window.innerHeight && bounds.top > 0) ||
-    (bounds.top < 0 && bounds.bottom < window.innerHeight)
-  ) {
-    if (bounds.top < 0) {
-      window.scrollBy(0, bounds.top - 1);
-    } else {
-      window.scrollBy(0, bounds.bottom - window.innerHeight + 1);
-    }
-  }
-}
-
 function setupGlobalSearch() {
   const originalCommand = {
     find: CodeMirror.commands.find,
@@ -257,7 +242,7 @@ function setupGlobalSearch() {
   let curState; // cm.state.search for last used 'find'
 
   function shouldIgnoreCase(query) { // treat all-lowercase non-regexp queries as case-insensitive
-    return typeof query === 'string' && query === query.toLowerCase();
+    return typeof query === 'string' && !/[A-Z]/.test(query);
   }
 
   function updateState(cm, newState) {
