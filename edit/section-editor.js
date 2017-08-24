@@ -475,6 +475,7 @@ function createSection(section) {
 
   return {
     el: div,
+    cm,
     section,
     isDirty() {
       return dirty.count() || appliesToToolbar.isDirty();
@@ -484,6 +485,21 @@ function createSection(section) {
       appliesToToolbar.cleanDirty();
     },
     hasError: appliesToToolbar.hasError
+  };
+}
+
+function createEditorManager() {
+  const editors = new Set();
+  let actived, lastActived;
+  return {
+    add(cm) {
+      editors.add(cm);
+      cm.on('focus', () => actived = cm);
+      cm.on('blur', () => {
+        actived = null;
+        lastActived = cm;
+      });
+    };
   };
 }
 
@@ -507,6 +523,8 @@ function createSectionEditor(parent, style) {
         return;
     }
   }});
+
+  const editorManager = createEditorManager();
 
   function _insertAfter(newSection, refSection) {
     // create ctrl

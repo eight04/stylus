@@ -4,9 +4,6 @@
 
 let style = null;
 let editor = null;
-let styleId = null;
-let dirty = {};       // only the actually dirty items here
-const editors = [];     // array of all CodeMirror instances
 let saveSizeOnClose;
 let useHistoryBack;   // use browser history back when 'back to manage' is clicked
 
@@ -53,241 +50,51 @@ new MutationObserver((mutations, observer) => {
   }
 }).observe(document, {subtree: true, childList: true});
 
-getCodeMirrorThemes();
+const getTheme = getCodeMirrorThemes();
 
-// reroute handling to nearest editor when keypress resolves to one of these commands
-const hotkeyRerouter = {
-  commands: {
-    save: true, jumpToLine: true, nextEditor: true, prevEditor: true,
-    find: true, findNext: true, findPrev: true, replace: true, replaceAll: true,
-    toggleStyle: true,
-  },
-  setState: enable => {
-    setTimeout(() => {
-      document[(enable ? 'add' : 'remove') + 'EventListener']('keydown', hotkeyRerouter.eventHandler);
-    }, 0);
-  },
-  eventHandler: event => {
-    const keyName = CodeMirror.keyName(event);
-    if (
-      CodeMirror.lookupKey(keyName, CodeMirror.getOption('keyMap'), handleCommand) === 'handled' ||
-      CodeMirror.lookupKey(keyName, CodeMirror.defaults.extraKeys, handleCommand) === 'handled'
-    ) {
-      event.preventDefault();
-      event.stopPropagation();
-    }
-    function handleCommand(command) {
-      if (hotkeyRerouter.commands[command] === true) {
-        CodeMirror.commands[command](getEditorInSight(event.target));
-        return true;
-      }
-    }
-  }
-};
-
-function onChange(event) {
-  const node = event.target;
-  if ('savedValue' in node) {
-    const currentValue = node.type === 'checkbox' ? node.checked : node.value;
-    setCleanItem(node, node.savedValue === currentValue);
-  } else {
-    // the manually added section's applies-to is dirty only when the value is non-empty
-    setCleanItem(node, node.localName !== 'input' || !node.value.trim());
-    delete node.savedValue; // only valid when actually saved
-  }
-  updateTitle();
-}
-
-// Set .dirty on stylesheet contributors that have changed
-function setDirtyClass(node, isDirty) {
-  node.classList.toggle('dirty', isDirty);
-}
-
-function setCleanItem(node, isClean) {
-  if (!node.id) {
-    node.id = Date.now().toString(32).substr(-6);
-  }
-
-  if (isClean) {
-    delete dirty[node.id];
-    // code sections have .CodeMirror property
-    if (node.CodeMirror) {
-      node.savedValue = node.CodeMirror.changeGeneration();
-    } else {
-      node.savedValue = node.type === 'checkbox' ? node.checked : node.value;
-    }
-  } else {
-    dirty[node.id] = true;
-  }
-
-  setDirtyClass(node, !isClean);
-}
-
-function isCleanGlobal() {
-  const clean = Object.keys(dirty).length === 0;
-  setDirtyClass(document.body, !clean);
-    // let saveBtn = document.getElementById('save-button')
-    // if (clean){
-    //     //saveBtn.removeAttribute('disabled');
-    // }else{
-    //     //saveBtn.setAttribute('disabled', true);
-    // }
-  return clean;
-}
-
-function setCleanGlobal() {
-  document.querySelectorAll('#header, #sections > div').forEach(setCleanSection);
-  dirty = {}; // forget the dirty applies-to ids from a deleted section after the style was saved
-}
-
-function setCleanSection(section) {
-  section.querySelectorAll('.style-contributor').forEach(node => { setCleanItem(node, true); });
-
-  // #header section has no codemirror
-  const cm = section.CodeMirror;
-  if (cm) {
-    section.savedValue = cm.changeGeneration();
-    indicateCodeChange(cm);
-  }
-}
-
-function initCodeMirror() {
-  const CM = CodeMirror;
-  const isWindowsOS = navigator.appVersion.indexOf('Windows') > 0;
-
-  // CodeMirror miserably fails on keyMap='' so let's ensure it's not
-  if (!prefs.get('editor.keyMap')) {
-    prefs.reset('editor.keyMap');
-  }
-
-  // default option values
-  Object.assign(CM.defaults, {
-    mode: 'css',
-    lineNumbers: true,
-    lineWrapping: true,
-    foldGutter: true,
-    gutters: ['CodeMirror-linenumbers', 'CodeMirror-foldgutter', 'CodeMirror-lint-markers'],
-    matchBrackets: true,
-    highlightSelectionMatches: {showToken: /[#.\-\w]/, annotateScrollbar: true},
-    hintOptions: {},
-    lint: {getAnnotations: CodeMirror.lint.css, delay: prefs.get('editor.lintDelay')},
-    lintReportDelay: prefs.get('editor.lintReportDelay'),
-    styleActiveLine: true,
-    theme: 'default',
-    keyMap: prefs.get('editor.keyMap'),
-    extraKeys: { // independent of current keyMap
-      'Alt-Enter': 'toggleStyle',
-      'Alt-PageDown': 'nextEditor',
-      'Alt-PageUp': 'prevEditor'
-    }
-  }, prefs.get('editor.options'));
-
-  // additional commands
-  CM.commands.jumpToLine = jumpToLine;
-  CM.commands.nextEditor = cm => { nextPrevEditor(cm, 1); };
-  CM.commands.prevEditor = cm => { nextPrevEditor(cm, -1); };
-  CM.commands.save = save;
-  CM.commands.blockComment = cm => {
-    cm.blockComment(cm.getCursor('from'), cm.getCursor('to'), {fullLines: false});
-  };
-  CM.commands.toggleStyle = toggleStyle;
-
-  // 'basic' keymap only has basic keys by design, so we skip it
-
-  const extraKeysCommands = {};
-  Object.keys(CM.defaults.extraKeys).forEach(key => {
-    extraKeysCommands[CM.defaults.extraKeys[key]] = true;
-  });
-  if (!extraKeysCommands.jumpToLine) {
-    CM.keyMap.sublime['Ctrl-G'] = 'jumpToLine';
-    CM.keyMap.emacsy['Ctrl-G'] = 'jumpToLine';
-    CM.keyMap.pcDefault['Ctrl-J'] = 'jumpToLine';
-    CM.keyMap.macDefault['Cmd-J'] = 'jumpToLine';
-  }
-  if (!extraKeysCommands.autocomplete) {
-    CM.keyMap.pcDefault['Ctrl-Space'] = 'autocomplete'; // will be used by 'sublime' on PC via fallthrough
-    CM.keyMap.macDefault['Alt-Space'] = 'autocomplete'; // OSX uses Ctrl-Space and Cmd-Space for something else
-    CM.keyMap.emacsy['Alt-/'] = 'autocomplete'; // copied from 'emacs' keymap
-    // 'vim' and 'emacs' define their own autocomplete hotkeys
-  }
-  if (!extraKeysCommands.blockComment) {
-    CM.keyMap.sublime['Shift-Ctrl-/'] = 'blockComment';
-  }
-
-  if (isWindowsOS) {
-    // 'pcDefault' keymap on Windows should have F3/Shift-F3
-    if (!extraKeysCommands.findNext) {
-      CM.keyMap.pcDefault['F3'] = 'findNext';
-    }
-    if (!extraKeysCommands.findPrev) {
-      CM.keyMap.pcDefault['Shift-F3'] = 'findPrev';
-    }
-
-    // try to remap non-interceptable Ctrl-(Shift-)N/T/W hotkeys
-    ['N', 'T', 'W'].forEach(char => {
-      [{from: 'Ctrl-', to: ['Alt-', 'Ctrl-Alt-']},
-       {from: 'Shift-Ctrl-', to: ['Ctrl-Alt-', 'Shift-Ctrl-Alt-']} // Note: modifier order in CM is S-C-A
-      ].forEach(remap => {
-        const oldKey = remap.from + char;
-        Object.keys(CM.keyMap).forEach(keyMapName => {
-          const keyMap = CM.keyMap[keyMapName];
-          const command = keyMap[oldKey];
-          if (!command) {
-            return;
-          }
-          remap.to.some(newMod => {
-            const newKey = newMod + char;
-            if (!(newKey in keyMap)) {
-              delete keyMap[oldKey];
-              keyMap[newKey] = command;
-              return true;
-            }
-          });
-        });
-      });
-    });
-  }
-
-  // user option values
-  CM.getOption = o => CodeMirror.defaults[o];
-  CM.setOption = (o, v) => {
-    CodeMirror.defaults[o] = v;
-    editors.forEach(editor => {
-      editor.setOption(o, v);
-    });
-  };
-
-  CM.prototype.getSection = function () {
-    return this.display.wrapper.parentNode;
-  };
-
+function initCodeMirrorOptions() {
   // initialize global editor controls
+  const themeControl = document.getElementById('editor.theme');
+  // Give the select element a default option
+  optionsFromArray(themeControl, [theme === 'default' ? ['default', t('defaultTheme')] : theme]);
+  themeControl.value = prefs.get('editor.theme');
+  // which would be overwitten by getTheme
+  getTheme().then(themes => {
+    optionsFromArray(themeControl, themes);
+    themeControl.value = prefs.get('editor.theme');
+  });
+  optionsFromArray($('#editor.keyMap'), Object.keys(CodeMirror.keyMap).sort());
+  document.getElementById('options').addEventListener('change', acmeEventListener, false);
+
   function optionsFromArray(parent, options) {
+    // options may be an array of [value, textContent] pair
     const fragment = document.createDocumentFragment();
     for (const opt of options) {
-      fragment.appendChild($element({tag: 'option', textContent: opt}));
+      if (typeof opt === 'string') {
+        fragment.appendChild($element({tag: 'option', textContent: opt}));
+      } else {
+        fragment.appendChild($element({tag: 'option', textContent: opt[1], value: opt[0]}));
+      }
     }
     parent.appendChild(fragment);
   }
-  const themeControl = document.getElementById('editor.theme');
-  const themeList = localStorage.codeMirrorThemes;
-  if (themeList) {
-    optionsFromArray(themeControl, themeList.split(/\s+/));
-  } else {
-    // Chrome is starting up and shows our edit.html, but the background page isn't loaded yet
-    const theme = prefs.get('editor.theme');
-    optionsFromArray(themeControl, [theme === 'default' ? t('defaultTheme') : theme]);
-    getCodeMirrorThemes().then(() => {
-      const themes = (localStorage.codeMirrorThemes || '').split(/\s+/);
-      optionsFromArray(themeControl, themes);
-      themeControl.selectedIndex = Math.max(0, themes.indexOf(theme));
-    });
-  }
-  optionsFromArray($('#editor.keyMap'), Object.keys(CM.keyMap).sort());
-  document.getElementById('options').addEventListener('change', acmeEventListener, false);
-  setupLivePrefs();
+}
 
-  hotkeyRerouter.setState(true);
+function loadCSS(url) {
+  return new Promise(resolve => {
+    const link = $element({
+      tag: 'link',
+      rel: 'stylesheet',
+      href: url,
+      // FIXME: does onload work on <link> in 2017?
+      // https://stackoverflow.com/a/13610128
+      onload() {
+        link.onload = null;
+        resolve(link);
+      }
+    });
+    document.head.appendChild(link);
+  });
 }
 
 function acmeEventListener(event) {
@@ -301,135 +108,43 @@ function acmeEventListener(event) {
   let value = el.type === 'checkbox' ? el.checked : el.value;
   switch (option) {
     case 'tabSize':
-      CodeMirror.setOption('indentUnit', Number(value));
+      CodeMirror.setGlobalOption('indentUnit', Number(value));
+      CodeMirror.setGlobalOption('tabSize', Number(value));
       break;
     case 'theme': {
       const themeLink = document.getElementById('cm-theme');
-      // use non-localized 'default' internally
-      if (!value || value === 'default' || value === t('defaultTheme')) {
-        value = 'default';
-        if (prefs.get(el.id) !== value) {
-          prefs.set(el.id, value);
-        }
-        themeLink.href = '';
-        el.selectedIndex = 0;
-        break;
-      }
-      const url = chrome.runtime.getURL('vendor/codemirror/theme/' + value + '.css');
-      if (themeLink.href === url) { // preloaded in initCodeMirror()
+      const url = value === 'default' ? '' : chrome.runtime.getURL('vendor/codemirror/theme/' + value + '.css');
+      if (themeLink.href !== url) { // preloaded in initCodeMirror()
+        CodeMirror.setGlobalOption('theme', value);
         break;
       }
       // avoid flicker: wait for the second stylesheet to load, then apply the theme
-      document.head.appendChild($element({
-        tag: 'link',
-        id: 'cm-theme2',
-        rel: 'stylesheet',
-        href: url
-      }));
-      setTimeout(() => {
-        CodeMirror.setOption(option, value);
+      loadCSS(url).then(el => {
         themeLink.remove();
-        $('#cm-theme2').id = 'cm-theme';
-      }, 100);
-      return;
+        el.id = 'cm-theme';
+        CodeMirror.setGlobalOption('theme', value);
+      });
+      break;
     }
     case 'autocompleteOnTyping':
-      editors.forEach(cm => {
-        const onOff = el.checked ? 'on' : 'off';
-        cm[onOff]('change', autocompleteOnTyping);
-        cm[onOff]('pick', autocompletePicked);
-      });
-      return;
+      CodeMirror.toggleAutocompleteOnTyping(value);
+      break;
     case 'matchHighlight':
       switch (value) {
         case 'token':
         case 'selection':
           document.body.dataset[option] = value;
-          value = {showToken: value === 'token' && /[#.\-\w]/, annotateScrollbar: true};
+          value = {
+            showToken: value === 'token' && /[#.\-\w]/,
+            annotateScrollbar: true
+          };
           break;
         default:
           value = null;
       }
+      CodeMirror.setOption(option, value);
+      break;
   }
-  CodeMirror.setOption(option, value);
-}
-
-// replace given textarea with the CodeMirror editor
-function setupCodeMirror(textarea, index) {
-  const cm = CodeMirror.fromTextArea(textarea, {lint: null});
-  const wrapper = cm.display.wrapper;
-
-  cm.on('change', indicateCodeChange);
-  if (prefs.get('editor.autocompleteOnTyping')) {
-    cm.on('change', autocompleteOnTyping);
-    cm.on('pick', autocompletePicked);
-  }
-  cm.on('blur', () => {
-    editors.lastActive = cm;
-    hotkeyRerouter.setState(true);
-    setTimeout(() => {
-      wrapper.classList.toggle('CodeMirror-active', wrapper.contains(document.activeElement));
-    });
-  });
-  cm.on('focus', () => {
-    hotkeyRerouter.setState(false);
-    wrapper.classList.add('CodeMirror-active');
-  });
-  if (!FIREFOX) {
-    cm.on('mousedown', (cm, event) => toggleContextMenuDelete.call(cm, event));
-  }
-
-  let lastClickTime = 0;
-  const resizeGrip = wrapper.appendChild(template.resizeGrip.cloneNode(true));
-  resizeGrip.onmousedown = event => {
-    if (event.button !== 0) {
-      return;
-    }
-    event.preventDefault();
-    if (Date.now() - lastClickTime < 500) {
-      lastClickTime = 0;
-      toggleSectionHeight(cm);
-      return;
-    }
-    lastClickTime = Date.now();
-    const minHeight = cm.defaultTextHeight() +
-      cm.display.lineDiv.offsetParent.offsetTop + /* .CodeMirror-lines padding */
-      wrapper.offsetHeight - wrapper.clientHeight; /* borders */
-    wrapper.style.pointerEvents = 'none';
-    document.body.style.cursor = 's-resize';
-    function resize(e) {
-      const cmPageY = wrapper.getBoundingClientRect().top + window.scrollY;
-      const height = Math.max(minHeight, e.pageY - cmPageY);
-      if (height !== wrapper.clientHeight) {
-        cm.setSize(null, height);
-      }
-    }
-    document.addEventListener('mousemove', resize);
-    document.addEventListener('mouseup', function resizeStop() {
-      document.removeEventListener('mouseup', resizeStop);
-      document.removeEventListener('mousemove', resize);
-      wrapper.style.pointerEvents = '';
-      document.body.style.cursor = '';
-    });
-  };
-
-  editors.splice(index || editors.length, 0, cm);
-  return cm;
-}
-
-function indicateCodeChange(cm) {
-  const section = cm.getSection();
-  setCleanItem(section, cm.isClean(section.savedValue));
-  updateTitle();
-  updateLintReport(cm);
-}
-
-function getSectionForChild(e) {
-  return e.closest('#sections > div');
-}
-
-function getSections() {
-  return document.querySelectorAll('#sections > div');
 }
 
 // remind Chrome to repaint a previously invisible editor box by toggling any element's transform
@@ -513,26 +228,6 @@ window.onbeforeunload = () => {
   updateLintReport(null, 0);
   return confirm(t('styleChangesNotSaved'));
 };
-
-function removeAreaAndSetDirty(area) {
-  const contributors = area.querySelectorAll('.style-contributor');
-  if (!contributors.length) {
-    setCleanItem(area, false);
-  }
-  contributors.some(node => {
-    if (node.savedValue) {
-      // it's a saved section, so make it dirty and stop the enumeration
-      setCleanItem(area, false);
-      return true;
-    } else {
-      // it's an empty section, so undirty the applies-to items,
-      // otherwise orphaned ids would keep the style dirty
-      setCleanItem(node, true);
-    }
-  });
-  updateTitle();
-  area.parentNode.removeChild(area);
-}
 
 function makeSectionVisible(cm) {
   const section = cm.getSection();
@@ -1125,7 +820,8 @@ function beautify(event) {
 document.addEventListener('DOMContentLoaded', init);
 
 function init() {
-  initCodeMirror();
+  initCodeMirrorOptions();
+  setupLivePrefs();
   const params = getParams();
   if (!params.id) { // match should be 2 - one for the whole thing, one for the parentheses
     // This is an add
@@ -1197,8 +893,8 @@ function initWithStyle({style, codeIsUpdated}) {
 
 function initHooks() {
   document.querySelectorAll('#header .style-contributor').forEach(node => {
-    node.addEventListener('change', onChange);
-    node.addEventListener('input', onChange);
+    node.addEventListener('change', updateTitle);
+    node.addEventListener('input', updateTitle);
   });
   document.getElementById('toggle-style-help').addEventListener('click', showToggleStyleHelp);
   document.getElementById('to-mozilla').addEventListener('click', showMozillaFormat, false);
@@ -1294,7 +990,7 @@ function updateTitle() {
   const DIRTY_TITLE = '* $';
 
   const name = document.getElementById('name').savedValue;
-  const clean = isCleanGlobal();
+  const clean = !editor.isDirty();
   const title = styleId === null ? t('addStyleTitle') : t('editStyleTitle', [name]);
   document.title = clean ? title : DIRTY_TITLE.replace('$', title);
 }
@@ -1707,7 +1403,7 @@ function getComputedHeight(el) {
 function getCodeMirrorThemes() {
   if (!chrome.runtime.getPackageDirectoryEntry) {
     const themes = [
-      chrome.i18n.getMessage('defaultTheme'),
+      ['default', chrome.i18n.getMessage('defaultTheme')],
       '3024-day',
       '3024-night',
       'abcdef',
@@ -1756,8 +1452,7 @@ function getCodeMirrorThemes() {
       'xq-light',
       'yeti',
       'zenburn',
-    ];
-    localStorage.codeMirrorThemes = themes.join(' ');
+    ].map(v => typeof v === 'string' ? [value, value] : value);
     return Promise.resolve(themes);
   }
   return new Promise(resolve => {
@@ -1765,13 +1460,12 @@ function getCodeMirrorThemes() {
       rootDir.getDirectory('vendor/codemirror/theme', {create: false}, themeDir => {
         themeDir.createReader().readEntries(entries => {
           const themes = [
-            chrome.i18n.getMessage('defaultTheme')
+            ['default', chrome.i18n.getMessage('defaultTheme')]
           ].concat(
             entries.filter(entry => entry.isFile)
               .sort((a, b) => (a.name < b.name ? -1 : 1))
               .map(entry => entry.name.replace(/\.css$/, ''))
-          );
-          localStorage.codeMirrorThemes = themes.join(' ');
+          ).map(v => typeof v === 'string' ? [v, v] : v);
           resolve(themes);
         });
       });
