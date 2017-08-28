@@ -71,6 +71,7 @@ function createAppliesToToolbar(container, section) {
 
   const applies = [];
   const applyEl = new Map();
+  const applyCtrl = new Map();
   const error = new Set();
   const dirty = dirtyReporter();
 
@@ -147,11 +148,106 @@ function createAppliesToToolbar(container, section) {
     }
   }
 
+  function createApplyCtrl(el) {
+    const state = {
+      query: null,
+      posFrom: null,
+      posTo: null
+    };
+
+    function searchStart(query) {
+      state.query = parseRegExp(query);
+      if (typeof state.query === 'object') {
+        state.matches = [];
+        buildMatches();
+      }
+    }
+
+    function parseRegExp(str) {
+      const match = str.match(/^\/(.+?)\/([igmy]*?)$/);
+      if (!match) return str;
+      const [, pattern, flags] = match;
+      flags = [...new Set(flags + 'g')].join('');
+      try {
+        return new RegExp(pattern, flags);
+      } catch (err) {}
+      return str;
+    }
+
+    function searchEnd() {
+      state.query = state.posFrom = state.posTo = null;
+    }
+
+    function search(reverse) {
+      state.posFrom = el.selectionStart;
+      state.posTo = el.selectionEnd;
+      if (typeof state.query === 'string') {
+        const i = el.value[reverse ? 'lastIndexOf' : 'indexOf'](state.query, reverse ? state.posFrom - 1 : state.posTo);
+        if (i < 0) return false;
+        state.posFrom = i;
+        state.posTo = i + state.query.length;
+      } else {
+        // FIXME: it's a O(n) search
+        const i = reverse ? state.posFrom : state.posTo;
+        let found, match;
+        state.query.lastIndex = 0;
+        while ((match = state.query.exec(el.value))) {
+          if (match.index >= i) {
+            break;
+          }
+          found = match;
+        }
+        if (match && match.index < i) {
+          match = null;
+        }
+        found = reverse ? found : match;
+        if (!found) return false;
+        state.posFrom = found.index;
+        state.posTo = found.index + found[0].length;
+      }
+      el.setSelectionRange(state.posFrom, state.posTo);
+      return true;
+    }
+
+    function setSearchCursor(pos) {
+      if (pos === 'start') {
+        el.setSelectionRange(0, 0);
+      } else if (pos === 'end') {
+        el.setSelectionRange(el.value.length, el.value.length);
+      }
+    }
+
+    return {
+      el,
+      search,
+      searchStart,
+      searchEnd,
+      setSearchCursor
+    };
+  }
+
   function addAppliesTo(apply) {
     const el = template.appliesTo.cloneNode(true);
 
     el.querySelector('[name=applies-type]').value = apply.type;
     el.querySelector('[name=applies-value]').value = apply.value;
+
+    bindEventGroup(el, {
+      '.remove-applies-to': {click() {
+        removeAppliesTo(apply);
+      }},
+      '.add-applies-to': {click: newAppliesTo},
+      '[name=applies-type]': {change: onTypeChange},
+      '[name=applies-value]': {
+        change: onValueChange,
+        input: onValueChange
+      }
+    });
+
+    container.appendChild(el);
+
+    applyEl.set(apply, el);
+    applyCtrl.set(apply, createApplyCtrl(el));
 
     function onTypeChange(e) {
       dirty.modify(
@@ -184,21 +280,6 @@ function createAppliesToToolbar(container, section) {
       updateSection(e.target, {apply});
     }
 
-    bindEventGroup(el, {
-      '.remove-applies-to': {click() {
-        removeAppliesTo(apply);
-      }},
-      '.add-applies-to': {click: newAppliesTo},
-      '[name=applies-type]': {change: onTypeChange},
-      '[name=applies-value]': {
-        change: onValueChange,
-        input: onValueChange
-      }
-    });
-
-    container.appendChild(el);
-
-    applyEl.set(apply, el);
     return el;
   }
 
@@ -211,6 +292,11 @@ function createAppliesToToolbar(container, section) {
     },
     hasError() {
       return error.size > 0;
+    },
+    destroy() {
+      for (const apply of applies) {
+        apply.();
+      }
     }
   };
 }
@@ -484,7 +570,13 @@ function createSection(section) {
       dirty.clear();
       appliesToToolbar.cleanDirty();
     },
-    hasError: appliesToToolbar.hasError
+    hasError: appliesToToolbar.hasError,
+    getApplies() {
+      return appliesToToolbar.getApplies();
+    },
+    destroy() {
+      appliesToToolbar.destroy();
+    }
   };
 }
 
@@ -518,8 +610,7 @@ function createEditorManager() {
   };
 }
 
-function createGlobalSearch(container) {
-  const widgets = [];
+function createGlobalSearch(container, widgets) {
   let started;
   let widget;
 
@@ -624,12 +715,18 @@ function createGlobalSearch(container) {
   };
 }
 
+function dispatchSearchWidgetEvent(el, method, widget, prev) {
+  el.dispatchEvent(new CustomEvent('searchWidget', {
+    bubbles: true,
+    detail: {method, widget, prev}
+  }));
+}
+
 function createSectionEditor(parent, style) {
   const el = template.sectionEditor.cloneNode(true);
   const container = $('.sections-container', el);
   const sectionCtrls = new Map();
   const dirty = dirtyReporter();
-  const globalSearch = createGlobalSearch(container);
 
   parent.appendChild(el);
   createSections();
@@ -663,6 +760,26 @@ function createSectionEditor(parent, style) {
   });
 
   const editorManager = createEditorManager();
+  const globalSearch = createGlobalSearch(container, grabSearchWidgets());
+
+  function grabSearchWidgets() {
+    const widgets = [];
+    for (const section of sectionCtrls.values()) {
+      widgets.push(section.cm);
+      for (const apply of section.getApplies()) {
+        widgets.push(apply.searchWidget);
+      }
+    }
+    return widgets;
+  }
+
+  function findSearchable(section) {
+    const applies = section.getApplies();
+    if (applies.length) {
+      return applies[applies.length - 1].searchWidget;
+    }
+    return section.cm;
+  }
 
   function _insertAfter(newSection, refSection) {
     // create ctrl
@@ -676,6 +793,7 @@ function createSectionEditor(parent, style) {
     } else {
       container.appendChild(sectionCtrl.el);
     }
+    dispatchSearchWidgetEvent(container, 'add', sectionCtrl.cmd, refSection && findSearchable(sectionCtrls.get(refSection)));
 
     maximizeCodeHeight(
       sectionCtrl.el,
@@ -718,8 +836,10 @@ function createSectionEditor(parent, style) {
   function removeSection(section) {
     const i = style.sections.indexOf(section);
     style.sections.splice(i, 1);
-    const {el} = sectionCtrls.get(section);
-    container.removeChild(el);
+    const ctrl = sectionCtrls.get(section);
+    ctrl.destroy();
+    dispatchSearchWidgetEvent(container, 'remove', ctrl.cm);
+    container.removeChild(ctrl.el);
     sectionCtrls.delete(section);
     dirty.remove(section);
   }
