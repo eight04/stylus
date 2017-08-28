@@ -257,23 +257,38 @@
   CodeMirror.commands.replaceAll = function(cm) {replace(cm, true);};
 
   // programming api
-  CodeMirror.defineExtension("searchDialog", callback => {
+  CodeMirror.defineExtension("searchDialog", function(callback) {
     var cm = this;
     clearSearch(cm);
     var q = cm.getSelection() || state.lastQuery;
     startSearchDialog(cm, q, callback);
   });
 
-  CodeMirror.defineExtension("searchStart", query => {
+  CodeMirror.defineExtension("searchStart", function(query) {
     var cm = this;
     clearSearch(cm);
-    startSearch(cm, getSearchState(cm), query);
+    var state = getSearchState(cm);
+    startSearch(cm, state, query);
+    state.posFrom = state.posTo = cm.getCursor()
   });
 
-  CodeMirror.defineExtension("search", (query, pos, rev) => {
+  CodeMirror.defineExtension("searchEnd", function() {
+    clearSearch(this);
+  });
+
+  CodeMirror.defineExtension("search", function(rev) {
     var cm = this;
     var state = getSearchState(cm);
-    state.posFrom = state.posTo = pos;
-    return findNext(cm, rev, null, false) ? [state.posFrom, state.posTo] : null;
+    return findNext(cm, rev, null, false);
+  });
+
+  CodeMirror.defineExtension("setSearchCursor", function(pos) {
+    var cm = this;
+    var state = getSearchCursor(cm);
+    if (pos == "start") {
+      state.posFrom = state.posTo = CodeMirror.Pos(cm.firstLine(), 0);
+    } else if (pos == "end") {
+      state.posFrom = state.posTo = CodeMirror.Pos(cm.lastLine());
+    }
   });
 });

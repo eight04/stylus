@@ -518,26 +518,149 @@ function createEditorManager() {
   };
 }
 
+function createGlobalSearch(container) {
+  const widgets = [];
+  let started;
+  let widget;
+
+  bindEvent(container, {
+    searchWidget(e) {
+      const {method, widget, prev} = e.detail;
+      switch (method) {
+        case 'add':
+          add(widget, prev);
+          return;
+        case 'remove':
+          remove(widget);
+          return;
+      }
+    }
+  });
+
+  function add(widget, prev) {
+    const i = prev ? widgets.indexOf(prev) : -1;
+    if (i < 0) {
+      widgets.push(widget);
+    } else {
+      widgets.splice(i + 1, 0, widget);
+    }
+  }
+
+  function remove(_widget) {
+    const i = widgets.indexOf(_widget);
+    widgets.splice(i, 1);
+    widget = widgets[i] ? widgets[i] : widgets[i - 1];
+  }
+
+  function start(query) {
+    started = true;
+    for (const widget of widgets) {
+      if (widget.searchStart) {
+        widget.searchStart(query);
+      }
+    }
+  }
+
+  function next(reverse) {
+    const startWidget = widget;
+    let shouldExit;
+    while (!widget.search(reverse)) {
+      if (shouldExit) {
+        alert("Not found!");
+        return;
+      }
+      const i = widgets.indexOf(widget);
+      if (reverse) {
+        widget = widgets[i - 1] ? widgets[i - 1] : widgets[widgets.length - 1];
+        widget.setSearchCursor("end");
+      } else {
+        widget = widgets[i + 1] ? widgets[i + 1] : widgets[0];
+        widget.setSearchCursor("start");
+      }
+      if (widget == startWidget) {
+        // a loop
+        shouldExit = true;
+      }
+    }
+  }
+
+  function end() {
+    started = false;
+    for (const widget of widgets) {
+      if (widget.searchEnd) {
+        widget.searchEnd();
+      }
+    }
+  }
+
+  return {
+    start(_widget) {
+      widget = _widget;
+      showSearchDialog({
+        onnext(query) {
+          if (!started) {
+            start(query);
+          }
+          next();
+        },
+        onprev() {
+          if (!started) {
+            start(query);
+          }
+          next(true);
+        },
+        onchange() {
+          started = false;
+        },
+        onclose() {
+          end();
+        }
+      });
+    },
+    next(_widget, reverse) {
+      widget = _widget;
+      next(reverse);
+    }
+  };
+}
+
 function createSectionEditor(parent, style) {
   const el = template.sectionEditor.cloneNode(true);
   const container = $('.sections-container', el);
   const sectionCtrls = new Map();
   const dirty = dirtyReporter();
+  const globalSearch = createGlobalSearch(container);
 
   parent.appendChild(el);
   createSections();
 
-  const unbind = bindEvent(container, {sectionCommand(e) {
-    const {method, section} = e.detail;
-    switch (method) {
-      case 'add':
-        addSection({code: ''}, section);
-        return;
-      case 'remove':
-        removeSection(section);
-        return;
+  const unbind = bindEvent(container, {
+    sectionCommand(e) {
+      const {method, section} = e.detail;
+      switch (method) {
+        case 'add':
+          addSection({code: ''}, section);
+          return;
+        case 'remove':
+          removeSection(section);
+          return;
+      }
+    },
+    globalCommand(e) {
+      const {widget = e.target, command} = e.detail;
+      switch (command) {
+        case 'find':
+          globalSearch.start();
+          return;
+        case 'findNext':
+          globalSearch.next(widget);
+          return;
+        case 'findPrev':
+          globalSearch.next(widget, true);
+          return;
+      }
     }
-  }});
+  });
 
   const editorManager = createEditorManager();
 

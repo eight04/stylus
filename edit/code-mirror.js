@@ -176,37 +176,23 @@ function capticalize(s) {
     };
   };
 
-  CodeMirror.setupSearcher = cm => {
-    let cache, pos;
-    cm.search = (text, direction, pos, loop) => {
-      if (!cache || cache.text !== text) {
-        cache = createSearch(text);
-      }
-      return cache[direction](pos, loop);
-    };
-
-    function createSearch(text) {
-      const doc = cm.getValues();
-      let match = text.match(/^\/(.+?)\/([imuy]*)$/);
-      if (match) {
-        try {
-          text = new RegExp(match[1], match[2]);
-        } catch (err) {}
-      }
-      let matches;
-      return {
-        next(_pos = pos, loop) {
-          let index;
-          if (typeof text === 'string') {
-            index = doc.
-          }
-        },
-        prev(_pos = pos, loop) {
-
-        }
-      }
+  CodeMirror.setupGlobalSearch = cm => {
+    for (const cmd of ['find', 'findNext', 'findPrev']) {
+      cm[`global${capticalize(cmd)}`] = cm => {
+        dispatchGlobalCommand(cm, cmd);
+      };
     }
   };
+
+  function dispatchGlobalCommand(cm, name) {
+    cm.getWrapperElement().dispatchEvent(new CustomEvent('globalCommand', {
+      bubbles: true,
+      details: {
+        widget: cm,
+        command: name
+      }
+    }));
+  }
 
   function decorateGlobalCmd(run, name) {
     const globalName = `global${capticalize(name)}`;
@@ -214,7 +200,10 @@ function capticalize(s) {
       if (cm[globalName]) {
         return cm[globalName](cm);
       }
-      return run(cm);
+      if (run) {
+        return run(cm);
+      }
+      dispatchGlobalCommand(cm, name);
     }
   }
 

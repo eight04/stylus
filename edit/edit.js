@@ -456,11 +456,6 @@ function setupGlobalSearch() {
     replace(cm, true);
   }
 
-  CodeMirror.commands.find = find;
-  CodeMirror.commands.findNext = findNext;
-  CodeMirror.commands.findPrev = findPrev;
-  CodeMirror.commands.replace = replace;
-  CodeMirror.commands.replaceAll = replaceAll;
 }
 
 function jumpToLine(cm) {
