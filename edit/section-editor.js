@@ -187,10 +187,10 @@ function createAppliesToToolbar(container, section) {
         state.posFrom = i;
         state.posTo = i + state.query.length;
       } else {
-        // FIXME: it's a O(n) search
         const i = reverse ? state.posFrom : state.posTo;
         let found, match;
-        state.query.lastIndex = 0;
+        // FIXME: it's a O(n) search when reverse
+        state.query.lastIndex = reverse ? 0 : state.posTo;
         while ((match = state.query.exec(el.value))) {
           if (match.index >= i) {
             break;
