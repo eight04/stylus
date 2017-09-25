@@ -4,29 +4,48 @@
 
 (function () {
   const params = getParams();
-
-  const port = chrome.tabs.connect(
-    Number(params.tabId),
-    {name: 'usercss-install', frameId: 0}
-  );
-  port.postMessage({method: 'getSourceCode'});
-  port.onMessage.addListener(msg => {
-    switch (msg.method) {
-      case 'getSourceCodeResponse':
-        if (msg.error) {
-          alert(msg.error);
-        } else {
-          initSourceCode(msg.sourceCode);
-        }
-        break;
-    }
-  });
-  port.onDisconnect.addListener(() => {
-    // FIXME: Firefox: 1) window.close doesn't work. 2) onDisconnect is fired only if the tab is closed.
-    window.close();
-  });
-
   const cm = CodeMirror.fromTextArea($('.code textarea'), {readOnly: true});
+
+  const port = chrome.runtime.connect({name: 'usercss-install'});
+
+  getTabId().then(tabId => {
+    const port = chrome.tabs.connect(
+      tabId,
+      {name: 'usercss-install', frameId: 0}
+    );
+    port.postMessage({method: 'getSourceCode'});
+    port.onMessage.addListener(msg => {
+      switch (msg.method) {
+        case 'getSourceCodeResponse':
+          if (msg.error) {
+            alert(msg.error);
+          } else {
+            initSourceCode(msg.sourceCode);
+          }
+          break;
+      }
+    });
+    port.onDisconnect.addListener(() => {
+      // FIXME: Firefox: 1) window.close doesn't work. 2) onDisconnect is fired only if the tab is closed.
+      window.close();
+    });
+  });
+
+  function getTabId() {
+    return new Promise((resolve, reject) => {
+      if (params.tabId) {
+        resolve(Number(params.tabId));
+        return;
+      }
+      chrome.tabs.getCurrent(tab => {
+        if (!tab) {
+          reject(new Error('Not a tab'));
+          return;
+        }
+        resolve(tab.id);
+      });
+    });
+  }
 
   function runtimeSend(request) {
     return new Promise((resolve, reject) => {

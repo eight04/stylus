@@ -86,10 +86,71 @@ function initUsercssInstall() {
       }
     });
   });
-  return runtimeSend({
-    method: 'openUsercssInstallPage',
-    updateUrl: location.href
-  }).catch(alert);
+
+  const url = chrome.runtime.getURL('/install-usercss.html') +
+    '?updateUrl=' + location.href;
+
+  injectIframe(url)
+    .catch(err => {
+      console.error('failed to inject iframe, fallback to new tab', err);
+      return runtimeSend({
+        method: 'openUsercssInstallPage',
+        updateUrl: location.href
+      });
+    })
+    .catch(alert);
+}
+
+function injectIframe(url) {
+  return new Promise((resolve, reject) => {
+    const iframe = document.createElement('iframe');
+    iframe.src = url;
+    iframe.style = `
+      all: unset;
+      margin: 0;
+      padding: 0;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: white;
+    `.replace(/;/g, '!important;');
+    iframe.addEventListener('load', onLoad);
+    iframe.addEventListener('error', onError);
+    document.body.appendChild(iframe);
+
+    document.body.style.overflow = 'hidden';
+
+    const observer = new MutationObserver(onDOMChange);
+    observer.observe(iframe.parentNode, {childList: true});
+
+    function onLoad() {
+      resolve(iframe);
+      iframe.contentWindow.focus();
+      unbind();
+    }
+
+    function onError(err) {
+      reject(err);
+      unbind();
+      iframe.remove();
+    }
+
+    function onDOMChange() {
+      if (!iframe.parentNode) {
+        reject(new Error('iframe is removed from DOM'));
+        unbind();
+        iframe.remove();
+      }
+    }
+
+    function unbind() {
+      iframe.removeEventListener('load', onLoad);
+      iframe.removeEventListener('error', onError);
+      observer.disconnect();
+    }
+  });
 }
 
 function isUsercss() {
