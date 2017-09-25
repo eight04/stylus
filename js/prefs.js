@@ -148,6 +148,7 @@ var prefs = new function Prefs() {
     reset: key => this.set(key, deepCopy(defaults[key])),
 
     broadcast(key, value, {sync = true} = {}) {
+      debugger;
       broadcastPrefs[key] = value;
       debounce(doBroadcast);
       if (sync) {

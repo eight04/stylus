@@ -6,15 +6,10 @@
   const params = getParams();
   const cm = CodeMirror.fromTextArea($('.code textarea'), {readOnly: true});
 
-  const port = chrome.runtime.connect({name: 'usercss-install'});
-
-  getTabId().then(tabId => {
-    const port = chrome.tabs.connect(
-      tabId,
-      {name: 'usercss-install', frameId: 0}
-    );
-    port.postMessage({method: 'getSourceCode'});
-    port.onMessage.addListener(msg => {
+  const getConnection = chrome.tabs ? connectToTab : connectToParent;
+  getConnection().then(connection => {
+    connection.postMessage({method: 'getSourceCode'});
+    connection.onMessage(msg => {
       switch (msg.method) {
         case 'getSourceCodeResponse':
           if (msg.error) {
@@ -25,11 +20,61 @@
           break;
       }
     });
-    port.onDisconnect.addListener(() => {
+    connection.onDisconnect(() => {
       // FIXME: Firefox: 1) window.close doesn't work. 2) onDisconnect is fired only if the tab is closed.
       window.close();
     });
   });
+
+  function connectToParent() {
+    return new Promise(resolve => {
+      if (window === window.parent) {
+        throw new Error('No parent window');
+      }
+
+      function postMessage(data) {
+        window.parent.postMessage(data, params.updateUrl);
+      }
+
+      function onMessage(cb) {
+        window.addEventListener('message', e => {
+          if (e.source !== window.parent) {
+            return;
+          }
+          cb(e.data);
+        });
+      }
+
+      function onDisconnect() {
+        // do nothing
+      }
+
+      resolve({postMessage, onMessage, onDisconnect});
+    });
+  }
+
+  function connectToTab() {
+    return getTabId().then(tabId => {
+      const port = chrome.tabs.connect(
+        tabId,
+        {name: 'usercss-install', frameId: 0}
+      );
+
+      function postMessage(data) {
+        port.postMessage(data);
+      }
+
+      function onMessage(cb) {
+        port.onMessage.addListener(cb);
+      }
+
+      function onDisconnect(cb) {
+        port.onDisconnect.addListener(cb);
+      }
+
+      return {postMessage, onMessage, onDisconnect};
+    });
+  }
 
   function getTabId() {
     return new Promise((resolve, reject) => {

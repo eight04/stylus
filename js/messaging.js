@@ -40,7 +40,7 @@ const URLS = {
   ),
 };
 
-let BG = chrome.extension.getBackgroundPage();
+let BG = chrome.extension.getBackgroundPage && chrome.extension.getBackgroundPage();
 if (BG && !BG.getStyles && BG !== window) {
   // own page like editor/manage is being loaded on browser startup
   // before the background page has been fully initialized;

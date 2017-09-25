@@ -69,88 +69,133 @@ function createSourceLoader() {
 
 function initUsercssInstall() {
   const pendingSource = createSourceLoader().load();
-  chrome.runtime.onConnect.addListener(port => {
-    // FIXME: is this the correct way to reject a connection?
-    // https://developer.chrome.com/extensions/messaging#connect
-    console.assert(port.name === 'usercss-install');
 
-    port.onMessage.addListener(msg => {
-      switch (msg.method) {
-        case 'getSourceCode':
-          pendingSource.then(sourceCode =>
-            port.postMessage({method: msg.method + 'Response', sourceCode})
-          ).catch(err =>
-            port.postMessage({method: msg.method + 'Response', error: err.message || String(err)})
-          );
-          break;
-      }
-    });
-  });
+  connectToPort('usercss-install').then(onConnect);
 
   const url = chrome.runtime.getURL('/install-usercss.html') +
     '?updateUrl=' + location.href;
 
-  injectIframe(url)
-    .catch(err => {
+  injectIframe({
+    url,
+    onCreate(iframe) {
+      connectToIframe(iframe).then(onConnect);
+    },
+    onError(err) {
       console.error('failed to inject iframe, fallback to new tab', err);
-      return runtimeSend({
+      runtimeSend({
         method: 'openUsercssInstallPage',
         updateUrl: location.href
+      }).catch(alert);
+    }
+  });
+
+  function connectToPort(name) {
+    return new Promise(resolve => {
+      chrome.runtime.onConnect.addListener(port => {
+        // FIXME: is this the correct way to reject a connection?
+        // https://developer.chrome.com/extensions/messaging#connect
+        console.assert(port.name === name);
+
+        function postMessage(data) {
+          port.postMessage(data);
+        }
+
+        function onMessage(cb) {
+          port.onMessage.addListener(cb);
+        }
+
+        resolve({postMessage, onMessage});
       });
-    })
-    .catch(alert);
+    });
+  }
+
+  function connectToIframe(iframe) {
+    return new Promise(resolve => {
+      function onMessage(cb) {
+        window.addEventListener('message', e => {
+          if (e.source !== iframe.contentWindow) {
+            return;
+          }
+          cb(e.data);
+        });
+      }
+
+      function postMessage(data) {
+        iframe.contentWindow.postMessage(data, iframe.src);
+      }
+
+      resolve({onMessage, postMessage});
+    });
+  }
+
+  function onConnect(connection) {
+    connection.onMessage(msg => {
+      switch (msg.method) {
+        case 'getSourceCode':
+          pendingSource.then(sourceCode =>
+            connection.postMessage({method: msg.method + 'Response', sourceCode})
+          ).catch(err =>
+            connection.postMessage({method: msg.method + 'Response', error: err.message || String(err)})
+          );
+          break;
+      }
+    });
+  }
 }
 
-function injectIframe(url) {
-  return new Promise((resolve, reject) => {
-    const iframe = document.createElement('iframe');
-    iframe.src = url;
-    iframe.style = `
-      all: unset;
-      margin: 0;
-      padding: 0;
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: white;
-    `.replace(/;/g, '!important;');
-    iframe.addEventListener('load', onLoad);
-    iframe.addEventListener('error', onError);
-    document.body.appendChild(iframe);
+function injectIframe({url, onCreate, onError}) {
+  onError = wrapOnError(onError);
 
-    document.body.style.overflow = 'hidden';
+  const iframe = document.createElement('iframe');
+  iframe.src = url;
+  iframe.style = `
+    all: unset;
+    margin: 0;
+    padding: 0;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: white;
+  `.replace(/;/g, '!important;');
 
-    const observer = new MutationObserver(onDOMChange);
-    observer.observe(iframe.parentNode, {childList: true});
+  iframe.addEventListener('load', onLoad);
+  iframe.addEventListener('error', wrapOnError(onError));
+  document.body.appendChild(iframe);
+  document.body.style.overflow = 'hidden';
 
-    function onLoad() {
-      resolve(iframe);
-      iframe.contentWindow.focus();
+  onCreate(iframe);
+
+  const observer = new MutationObserver(onDOMChange);
+  observer.observe(iframe.parentNode, {childList: true});
+
+  function onLoad() {
+    iframe.contentWindow.focus();
+    iframe.removeEventListener('load', onLoad);
+  }
+
+  function wrapOnError(fn) {
+    return err => {
+      fn(err);
       unbind();
-    }
+      iframe.remove();
+    };
+  }
 
-    function onError(err) {
-      reject(err);
+  function onDOMChange() {
+    if (!iframe.parentNode) {
+      onError(new Error('iframe is removed from DOM'));
       unbind();
       iframe.remove();
     }
+  }
 
-    function onDOMChange() {
-      if (!iframe.parentNode) {
-        reject(new Error('iframe is removed from DOM'));
-        unbind();
-        iframe.remove();
-      }
-    }
-
-    function unbind() {
-      iframe.removeEventListener('load', onLoad);
-      iframe.removeEventListener('error', onError);
-      observer.disconnect();
-    }
-  });
+  function unbind() {
+    iframe.removeEventListener('load', onLoad);
+    iframe.removeEventListener('error', onError);
+    observer.disconnect();
+  }
 }
 
 function isUsercss() {
