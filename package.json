@@ -1,0 +1,23 @@
+{
+  "name": "stylus",
+  "version": "1.0.0",
+  "description": "Stylus is a fork of Stylish for Chrome, also compatible with Firefox as a WebExtension",
+  "main": "index.js",
+  "scripts": {
+    "test": "eslint **/*.js",
+    "build": "web-ext build --overwrite-dest"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/eight04/stylus.git"
+  },
+  "author": "eight <eight04@gmail.com> (http://eight04.blogspot.tw)",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/eight04/stylus/issues"
+  },
+  "homepage": "https://github.com/eight04/stylus#readme",
+  "devDependencies": {
+    "web-ext": "^2.2.2"
+  }
+}

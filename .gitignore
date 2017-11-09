@@ -1,2 +1,4 @@
 .DS_Store
 pull_locales_login.rb
+node_modules
+web-ext-artifacts
