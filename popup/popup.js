@@ -260,6 +260,11 @@ function createStyleElement({
     onclick: handleEvent.openLink,
   });
 
+  const configLink = $('.style-configure-link', entry);
+  if (!style.usercssData || !Object.keys(style.usercssData.vars).length) {
+    configLink.style.display = 'none';
+  }
+
   const styleName = $('.style-name', entry);
   Object.assign(styleName, {
     htmlFor: ENTRY_ID_PREFIX_RAW + style.id,
@@ -271,6 +276,7 @@ function createStyleElement({
   $('.enable', entry).onclick = handleEvent.toggle;
   $('.disable', entry).onclick = handleEvent.toggle;
   $('.delete', entry).onclick = handleEvent.delete;
+  $('.configure', entry).onclick = handleEvent.configure;
 
   invokeOrPostpone(!postponeDetect, detectSloppyRegexps, {entry, style});
 

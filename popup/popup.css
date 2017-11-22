@@ -14,7 +14,8 @@ body {
   color: #000;
 }
 
-body > div:not(#installed) {
+body > #confirm,
+body > .actions {
   margin-left: 0.75em;
   margin-right: 0.75em;
 }
