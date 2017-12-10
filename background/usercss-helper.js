@@ -22,10 +22,10 @@ var usercssHelper = (() => {
 
   function buildCode(style) {
     console.assert(style.qid != null);
-    console.assert(qidBeforeBuild == null || qidBeforeBuild < style.qid);
+    console.assert(qidBeforeBuild == null || qidBeforeBuild < style.qid, qidBeforeBuild, style.qid);
     qidBeforeBuild = style.qid;
     return usercss.buildCode(style).then(result => {
-      console.assert(qidAfterBuild == null || qidAfterBuild < style.qid);
+      console.assert(qidAfterBuild == null || qidAfterBuild < style.qid, qidAfterBuild, style.qid);
       qidAfterBuild = style.qid;
       return result;
     });

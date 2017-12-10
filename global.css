@@ -165,6 +165,11 @@ select[disabled] > option {
   color: graytext;
 }
 
+/* global stuff we use everywhere */
+.hidden {
+  display: none !important;
+}
+
 @supports (-moz-appearance: none) {
   .moz-appearance-bug .svg-icon.checked,
   .moz-appearance-bug input[type="radio"]:after {

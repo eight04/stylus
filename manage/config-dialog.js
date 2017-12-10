@@ -5,6 +5,8 @@ let qid = 0;
 
 function configDialog(style) {
   const AUTOSAVE_DELAY = 500;
+  let saving = false;
+
   const data = style.usercssData;
   const varsHash = deepCopy(data.vars) || {};
   const varNames = Object.keys(varsHash);
@@ -108,17 +110,28 @@ function configDialog(style) {
   }
 
   function save({anyChangeIsDirty = false} = {}) {
+    // if (saving) {
+      // debounce(save, 0, ...arguments);
+      // return;
+    // }
     if (!vars.length ||
         !vars.some(va => va.dirty || anyChangeIsDirty && va.value !== va.savedValue)) {
       return;
     }
-    style.enabled = true;
-    style.reason = 'config';
-    const styleVars = style.usercssData.vars;
+    const request = {
+      id: style.id,
+      enabled: true,
+      reason: 'config',
+      sourceCode: style.sourceCode,
+      usercssData: BG.deepCopy(style.usercssData)
+    };
+    const styleVars = request.usercssData.vars;
     const bgStyle = BG.cachedStyles.byId.get(style.id);
     const bgVars = bgStyle && (bgStyle.usercssData || {}).vars || {};
     const invalid = [];
     let numValid = 0;
+    console.assert(bgStyle === style);
+    console.assert(bgVars === style.usercssData.vars);
     for (const va of vars) {
       const bgva = bgVars[va.name];
       let error;
@@ -159,10 +172,10 @@ function configDialog(style) {
     if (!numValid) {
       return;
     }
-    if (style.qid != null) {
-      throw new Error("style is a request");
-    }
-    return BG.usercssHelper.save(Object.assign({qid: qid++}, style))
+    saving = true;
+    console.assert(style.qid == null, "style is a request");
+    request.qid = qid++;
+    return BG.usercssHelper.save(request)
       .then(saved => {
         varsInitial = getInitialValues(deepCopy(saved.usercssData.vars));
         vars.forEach(va => onchange({target: va.input, justSaved: true}));
@@ -174,6 +187,9 @@ function configDialog(style) {
         const el = $('.config-error', messageBox.element) ||
           $('#message-box-buttons').insertAdjacentElement('afterbegin', $create('.config-error'));
         el.textContent = el.title = Array.isArray(errors) ? errors.join('\n') : errors;
+      })
+      .then(() => {
+        saving = false;
       });
   }
 
