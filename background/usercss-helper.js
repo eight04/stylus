@@ -1,6 +1,9 @@
 /* global usercss saveStyle getStyles chromeLocal */
 'use strict';
 
+let qidBeforeBuild;
+let qidAfterBuild;
+
 // eslint-disable-next-line no-var
 var usercssHelper = (() => {
   function buildMeta(style) {
@@ -18,7 +21,14 @@ var usercssHelper = (() => {
   }
 
   function buildCode(style) {
-    return usercss.buildCode(style);
+    console.assert(style.qid != null);
+    console.assert(qidBeforeBuild == null || qidBeforeBuild < style.qid);
+    qidBeforeBuild = style.qid;
+    return usercss.buildCode(style).then(result => {
+      console.assert(qidAfterBuild == null || qidAfterBuild < style.qid);
+      qidAfterBuild = style.qid;
+      return result;
+    });
   }
 
   function wrapReject(pending) {

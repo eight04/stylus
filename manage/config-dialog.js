@@ -1,6 +1,8 @@
 /* global messageBox */
 'use strict';
 
+let qid = 0;
+
 function configDialog(style) {
   const AUTOSAVE_DELAY = 500;
   const data = style.usercssData;
@@ -157,7 +159,10 @@ function configDialog(style) {
     if (!numValid) {
       return;
     }
-    return BG.usercssHelper.save(style)
+    if (style.qid != null) {
+      throw new Error("style is a request");
+    }
+    return BG.usercssHelper.save(Object.assign({qid: qid++}, style))
       .then(saved => {
         varsInitial = getInitialValues(deepCopy(saved.usercssData.vars));
         vars.forEach(va => onchange({target: va.input, justSaved: true}));
